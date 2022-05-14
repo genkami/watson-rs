@@ -129,6 +129,19 @@ impl IsValue for bool {
     }
 }
 
+impl IsValue for () {
+    fn from_value(v: Value) -> Option<()> {
+        match v {
+            Nil => Some(()),
+            _ => None,
+        }
+    }
+
+    fn into_value(self) -> Value {
+        Nil
+    }
+}
+
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
@@ -362,7 +375,24 @@ impl VM {
             }),
             Bnew => push(&mut ops, false),
             Bneg => ops.apply1(|b: bool| !b),
-            _ => todo!(),
+            Nnew => push(&mut ops, ()),
+            Gdup => {
+                let v = ops.pop()?;
+                ops.push(v.clone());
+                ops.push(v);
+                Ok(())
+            }
+            Gpop => {
+                ops.pop()?;
+                Ok(())
+            }
+            Gswp => {
+                let v1 = ops.pop()?;
+                let v2 = ops.pop()?;
+                ops.push(v1);
+                ops.push(v2);
+                Ok(())
+            }
         }
     }
 
@@ -793,6 +823,64 @@ mod test {
 
         vm.execute(new_token(Bneg))?;
         assert_eq!(vm.peek_top(), Some(&Bool(false)));
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_nnew() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Nnew))?;
+        assert_eq!(vm.peek_top(), Some(&Nil));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_gdup() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.borrow_stack_mut().force_operate().push(Int(123));
+        vm.execute(new_token(Gdup))?;
+
+        let mut ops = vm.borrow_stack_mut().force_operate();
+        assert_eq!(ops.pop(), Ok(Int(123)));
+        assert_eq!(ops.pop(), Ok(Int(123)));
+        assert_eq!(ops.pop().unwrap_err().kind, ErrorKind::EmptyStack);
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_gpop() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(111));
+        ops.push(Uint(222));
+        vm.execute(new_token(Gpop))?;
+
+        let mut ops = vm.borrow_stack_mut().force_operate();
+        assert_eq!(ops.pop(), Ok(Int(111)));
+        assert_eq!(ops.pop().unwrap_err().kind, ErrorKind::EmptyStack);
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_gswp() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(111));
+        ops.push(Uint(222));
+        vm.execute(new_token(Gswp))?;
+
+        let mut ops = vm.borrow_stack_mut().force_operate();
+        assert_eq!(ops.pop(), Ok(Int(111)));
+        assert_eq!(ops.pop(), Ok(Uint(222)));
+        assert_eq!(ops.pop().unwrap_err().kind, ErrorKind::EmptyStack);
+
         Ok(())
     }
 
