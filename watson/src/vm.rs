@@ -3,11 +3,12 @@ use std::rc::Rc;
 
 /// A value that is defined in WATSON specification.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Value {
     Int(i64),
     Uint(u64),
     Float(f64),
+    String(Vec<u8>),
     Nil,
 }
 
@@ -58,6 +59,19 @@ impl IsValue for f64 {
 
     fn into_value(self) -> Value {
         Float(self)
+    }
+}
+
+impl IsValue for Vec<u8> {
+    fn from_value(v: Value) -> Option<Vec<u8>> {
+        match v {
+            String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    fn into_value(self) -> Value {
+        String(self)
     }
 }
 
@@ -276,6 +290,11 @@ impl VM {
             Finf => push(&mut ops, f64::INFINITY),
             Fnan => push(&mut ops, f64::NAN),
             Fneg => ops.apply1(|x: f64| -x),
+            Snew => push(&mut ops, Vec::<u8>::new()),
+            Sadd => ops.apply2(|x: i64, mut s: Vec<u8>| {
+                s.push(x as u8);
+                s
+            }),
             _ => todo!(),
         }
     }
@@ -572,6 +591,34 @@ mod test {
         ops.push(Float(1.23));
         vm.execute(new_token(Fneg))?;
         assert_eq!(vm.peek_top(), Some(&Float(-1.23)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_snew() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Snew))?;
+        assert_eq!(vm.peek_top(), Some(&String(Vec::new())));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_sadd() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Snew))?;
+        assert_eq!(vm.peek_top(), Some(&String(Vec::new())));
+
+        vm.borrow_stack_mut().force_operate().push(Int(b'a' as i64));
+        vm.execute(new_token(Sadd))?;
+        assert_eq!(vm.peek_top(), Some(&String(b"a".to_vec())));
+
+        vm.borrow_stack_mut().force_operate().push(Int(b'b' as i64));
+        vm.execute(new_token(Sadd))?;
+        assert_eq!(vm.peek_top(), Some(&String(b"ab".to_vec())));
 
         Ok(())
     }
