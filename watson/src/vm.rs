@@ -11,13 +11,13 @@ pub enum Value {
 
 pub use Value::*;
 
-/// Claimer claims that a Value of certain type should be lying on the top of the stack.
-pub trait Claimer: Sized {
+/// A type that can be converted directly from `Value`.
+pub trait FromValue: Sized {
     /// Converts a `Value` into its expected type.
     fn to_inner(v: Value) -> Option<Self>;
 }
 
-impl Claimer for i64 {
+impl FromValue for i64 {
     fn to_inner(v: Value) -> Option<i64> {
         match v {
             Int(i) => Some(i),
@@ -126,7 +126,7 @@ impl<'a> StackOps<'a> {
     /// Pops a value from the stack, applies f to it, then pushes the result.
     pub fn apply1<C1, F>(&mut self, f: F) -> Result<()>
     where
-        C1: Claimer,
+        C1: FromValue,
         F: FnOnce(C1) -> Value,
     {
         let v1 = self.pop()?;
@@ -139,8 +139,8 @@ impl<'a> StackOps<'a> {
     /// The leftmost argument corresponds to the top of the stack.
     pub fn apply2<C1, C2, F>(&mut self, f: F) -> Result<()>
     where
-        C1: Claimer,
-        C2: Claimer,
+        C1: FromValue,
+        C2: FromValue,
         F: FnOnce(C1, C2) -> Value,
     {
         let v1 = self.pop()?;
@@ -154,9 +154,9 @@ impl<'a> StackOps<'a> {
     /// The leftmost argument corresponds to the top of the stack.
     pub fn apply3<C1, C2, C3, F>(&mut self, f: F) -> Result<()>
     where
-        C1: Claimer,
-        C2: Claimer,
-        C3: Claimer,
+        C1: FromValue,
+        C2: FromValue,
+        C3: FromValue,
         F: FnOnce(C1, C2, C3) -> Value,
     {
         let v1 = self.pop()?;
@@ -167,7 +167,7 @@ impl<'a> StackOps<'a> {
         Ok(())
     }
 
-    fn claim<C: Claimer>(&self, v: Value) -> Result<C> {
+    fn claim<C: FromValue>(&self, v: Value) -> Result<C> {
         match C::to_inner(v) {
             Some(x) => Ok(x),
             None => Err(Error {
