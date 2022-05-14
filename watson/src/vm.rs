@@ -9,8 +9,11 @@ pub enum Value {
     Uint(u64),
     Float(f64),
     String(Vec<u8>),
+    Object(Map),
     Nil,
 }
+
+type Map = std::collections::HashMap<Vec<u8>, Value>;
 
 pub use Value::*;
 
@@ -21,6 +24,16 @@ pub trait IsValue: Sized {
 
     /// Converts self into a `Value`.
     fn into_value(self) -> Value;
+}
+
+impl IsValue for Value {
+    fn from_value(v: Value) -> Option<Value> {
+        Some(v)
+    }
+
+    fn into_value(self) -> Value {
+        self
+    }
 }
 
 impl IsValue for i64 {
@@ -72,6 +85,19 @@ impl IsValue for Vec<u8> {
 
     fn into_value(self) -> Value {
         String(self)
+    }
+}
+
+impl IsValue for Map {
+    fn from_value(v: Value) -> Option<Map> {
+        match v {
+            Object(o) => Some(o),
+            _ => None,
+        }
+    }
+
+    fn into_value(self) -> Value {
+        Object(self)
     }
 }
 
@@ -294,6 +320,11 @@ impl VM {
             Sadd => ops.apply2(|x: i64, mut s: Vec<u8>| {
                 s.push(x as u8);
                 s
+            }),
+            Onew => push(&mut ops, Map::new()),
+            Oadd => ops.apply3(|v: Value, k: Vec<u8>, mut o: Map| {
+                o.insert(k, v);
+                o
             }),
             _ => todo!(),
         }
@@ -620,6 +651,54 @@ mod test {
         vm.execute(new_token(Sadd))?;
         assert_eq!(vm.peek_top(), Some(&String(b"ab".to_vec())));
 
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_onew() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Onew))?;
+        assert_eq!(vm.peek_top(), Some(&Object(Map::new())));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_oadd() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Onew))?;
+        assert_eq!(vm.peek_top(), Some(&Object(Map::new())));
+
+        let mut ops = vm.borrow_stack_mut().force_operate();
+        ops.push(String(b"key1".to_vec()));
+        ops.push(String(b"value1".to_vec()));
+        vm.execute(new_token(Oadd))?;
+        assert_eq!(
+            vm.peek_top(),
+            Some(&Object(
+                vec![(b"key1".to_vec(), String(b"value1".to_vec()))]
+                    .into_iter()
+                    .collect()
+            ))
+        );
+
+        let mut ops = vm.borrow_stack_mut().force_operate();
+        ops.push(String(b"key2".to_vec()));
+        ops.push(Int(22222));
+        vm.execute(new_token(Oadd))?;
+        assert_eq!(
+            vm.peek_top(),
+            Some(&Object(
+                vec![
+                    (b"key1".to_vec(), String(b"value1".to_vec())),
+                    (b"key2".to_vec(), Int(22222)),
+                ]
+                .into_iter()
+                .collect()
+            ))
+        );
         Ok(())
     }
 
