@@ -10,6 +10,7 @@ pub enum Value {
     Float(f64),
     String(Vec<u8>),
     Object(Map),
+    Array(Vec<Value>),
     Nil,
 }
 
@@ -101,6 +102,19 @@ impl IsValue for Map {
     }
 }
 
+impl IsValue for Vec<Value> {
+    fn from_value(v: Value) -> Option<Vec<Value>> {
+        match v {
+            Array(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    fn into_value(self) -> Value {
+        Array(self)
+    }
+}
+
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
@@ -148,6 +162,7 @@ pub struct Token {
 }
 
 // The error type of the WATSON VM.
+// TODO: make this std::error::Error
 #[derive(Eq, PartialEq, Debug)]
 pub struct Error {
     /// Represents details of the error.
@@ -325,6 +340,11 @@ impl VM {
             Oadd => ops.apply3(|v: Value, k: Vec<u8>, mut o: Map| {
                 o.insert(k, v);
                 o
+            }),
+            Anew => push(&mut ops, Vec::<Value>::new()),
+            Aadd => ops.apply2(|v: Value, mut a: Vec<Value>| {
+                a.push(v);
+                a
             }),
             _ => todo!(),
         }
@@ -699,6 +719,39 @@ mod test {
                 .collect()
             ))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_anew() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Anew))?;
+        assert_eq!(vm.peek_top(), Some(&Array(Vec::new())));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_aadd() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Anew))?;
+        assert_eq!(vm.peek_top(), Some(&Array(Vec::new())));
+
+        vm.borrow_stack_mut().force_operate().push(Int(123));
+        vm.execute(new_token(Aadd))?;
+        assert_eq!(vm.peek_top(), Some(&Array(vec![Int(123)])));
+
+        vm.borrow_stack_mut()
+            .force_operate()
+            .push(String(b"hello".to_vec()));
+        vm.execute(new_token(Aadd))?;
+        assert_eq!(
+            vm.peek_top(),
+            Some(&Array(vec![Int(123), String(b"hello".to_vec())]))
+        );
+
         Ok(())
     }
 
