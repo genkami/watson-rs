@@ -224,6 +224,7 @@ impl VM {
                 ops.push(Int(0));
                 Ok(())
             }
+            Iinc => ops.apply1(|x: i64| Int(x + 1)),
             _ => todo!(),
         }
     }
@@ -231,6 +232,11 @@ impl VM {
     /// Returns a `Value` on the top of the stack.
     pub fn peek_top(&self) -> Option<&Value> {
         self.stack.peek_top()
+    }
+
+    /// Borrows its stack mutably for debug purpose.
+    pub fn borrow_stack_mut(&mut self) -> &mut Stack {
+        &mut self.stack
     }
 }
 
@@ -385,6 +391,20 @@ mod test {
         assert_eq!(vm.peek_top(), None);
         vm.execute(new_token(Inew))?;
         assert_eq!(vm.peek_top(), Some(&Int(0)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_iinc() -> Result<()> {
+        let mut vm = VM::new();
+        vm.borrow_stack_mut()
+            .operate_as(new_meaningless_token())
+            .push(Int(123));
+
+        assert_eq!(vm.peek_top(), Some(&Int(123)));
+        vm.execute(new_token(Iinc))?;
+        assert_eq!(vm.peek_top(), Some(&Int(124)));
 
         Ok(())
     }
