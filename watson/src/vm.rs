@@ -1,8 +1,30 @@
 use std::path;
 use std::rc::Rc;
 
-use crate::value;
-use crate::value::Value;
+/// A value that is defined in WATSON specification.
+/// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
+#[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
+pub enum Value {
+    Int(i64),
+    Nil,
+}
+
+pub use Value::*;
+
+/// Claimer claims that a Value of certain type should be lying on the top of the stack.
+pub trait Claimer: Sized {
+    /// Converts a `Value` into its expected type.
+    fn to_inner(v: Value) -> Option<Self>;
+}
+
+impl Claimer for i64 {
+    fn to_inner(v: Value) -> Option<i64> {
+        match v {
+            Int(i) => Some(i),
+            _ => None,
+        }
+    }
+}
 
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -104,8 +126,8 @@ impl<'a> StackOps<'a> {
     /// Pops a value from the stack, applies f to it, then pushes the result.
     pub fn apply1<C1, F>(&mut self, f: F) -> Result<()>
     where
-        C1: value::Claimer,
-        F: FnOnce(C1::Want) -> Value,
+        C1: Claimer,
+        F: FnOnce(C1) -> Value,
     {
         let v1 = self.pop()?;
         let result = f(self.claim::<C1>(v1)?);
@@ -113,7 +135,7 @@ impl<'a> StackOps<'a> {
         Ok(())
     }
 
-    fn claim<C: value::Claimer>(&self, v: Value) -> Result<C::Want> {
+    fn claim<C: Claimer>(&self, v: Value) -> Result<C> {
         match C::to_inner(v) {
             Some(x) => Ok(x),
             None => Err(Error {
@@ -147,8 +169,6 @@ pub struct VM {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::value::claimer;
-    use crate::value::Value::*;
 
     #[test]
     fn stack_push_and_pop() {
@@ -187,17 +207,17 @@ mod test {
         let mut stack = Stack::new();
         let mut ops = stack.operate_as(token);
 
-        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x)), empty_stack);
+        assert_eq!(ops.apply1::<i64, _>(|x| Int(x)), empty_stack);
 
         ops.push(Nil);
-        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x)), type_mismatch);
+        assert_eq!(ops.apply1::<i64, _>(|x| Int(x)), type_mismatch);
 
         ops.push(Int(123));
-        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x)), Ok(()));
+        assert_eq!(ops.apply1::<i64, _>(|x| Int(x)), Ok(()));
         assert_eq!(ops.pop(), Ok(Int(123)));
 
         ops.push(Int(456));
-        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x + 100)), Ok(()));
+        assert_eq!(ops.apply1::<i64, _>(|x| Int(x + 100)), Ok(()));
         assert_eq!(ops.pop(), Ok(Int(556)));
     }
 
