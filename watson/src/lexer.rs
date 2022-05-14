@@ -330,9 +330,34 @@ mod test {
 
     #[test]
     fn builder_initial_mode_defaults_to_a() {
-        let asciis = b"".to_vec();
-        let lexer = Builder::new().build(&asciis[..]);
-        assert_eq!(lexer.mode, Mode::A);
+        let asciis = b"Bubba".to_vec();
+        let mut lexer = Builder::new().build(&asciis[..]);
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: None,
+                line: 1,
+                column: 1,
+            },
+        );
+    }
+
+    #[test]
+    fn builder_initial_mode_can_be_overridden() {
+        let asciis = b"Shaak".to_vec();
+        let mut lexer = Builder::new().initial_mode(Mode::S).build(&asciis[..]);
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'S',
+                file_path: None,
+                line: 1,
+                column: 1,
+            },
+        );
     }
 
     #[test]
