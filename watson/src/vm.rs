@@ -130,7 +130,39 @@ impl<'a> StackOps<'a> {
         F: FnOnce(C1) -> Value,
     {
         let v1 = self.pop()?;
-        let result = f(self.claim::<C1>(v1)?);
+        let result = f(self.claim(v1)?);
+        self.push(result);
+        Ok(())
+    }
+
+    /// Pops two values from the stack, applies f to them, then pushes the result.
+    /// The leftmost argument corresponds to the top of the stack.
+    pub fn apply2<C1, C2, F>(&mut self, f: F) -> Result<()>
+    where
+        C1: Claimer,
+        C2: Claimer,
+        F: FnOnce(C1, C2) -> Value,
+    {
+        let v1 = self.pop()?;
+        let v2 = self.pop()?;
+        let result = f(self.claim(v1)?, self.claim(v2)?);
+        self.push(result);
+        Ok(())
+    }
+
+    /// Pops three values from the stack, applies f to them, then pushes the result.
+    /// The leftmost argument corresponds to the top of the stack.
+    pub fn apply3<C1, C2, C3, F>(&mut self, f: F) -> Result<()>
+    where
+        C1: Claimer,
+        C2: Claimer,
+        C3: Claimer,
+        F: FnOnce(C1, C2, C3) -> Value,
+    {
+        let v1 = self.pop()?;
+        let v2 = self.pop()?;
+        let v3 = self.pop()?;
+        let result = f(self.claim(v1)?, self.claim(v2)?, self.claim(v3)?);
         self.push(result);
         Ok(())
     }
@@ -172,53 +204,149 @@ mod test {
 
     #[test]
     fn stack_push_and_pop() {
-        let token = new_meaningless_token();
-        let empty_stack = Err(Error {
-            kind: ErrorKind::EmptyStack,
-            token: token.clone(),
+        test_ops(|token, mut ops| {
+            assert_eq!(ops.pop(), empty_stack(token.clone()));
         });
 
-        let mut stack = Stack::new();
-        let mut ops = stack.operate_as(token);
-
-        assert_eq!(ops.pop(), empty_stack);
-
-        ops.push(Int(1));
-        ops.push(Int(2));
-        ops.push(Int(3));
-        assert_eq!(ops.pop(), Ok(Int(3)));
-        assert_eq!(ops.pop(), Ok(Int(2)));
-        assert_eq!(ops.pop(), Ok(Int(1)));
-        assert_eq!(ops.pop(), empty_stack);
+        test_ops(|token, mut ops| {
+            ops.push(Int(1));
+            ops.push(Int(2));
+            ops.push(Int(3));
+            assert_eq!(ops.pop(), Ok(Int(3)));
+            assert_eq!(ops.pop(), Ok(Int(2)));
+            assert_eq!(ops.pop(), Ok(Int(1)));
+            assert_eq!(ops.pop(), empty_stack(token.clone()));
+        });
     }
 
     #[test]
     fn stack_apply1() {
+        fn incr(x: i64) -> Value {
+            Int(x + 1)
+        }
+
+        // insufficient stack
+        test_ops(|token, mut ops| {
+            assert_eq!(ops.apply1(incr), empty_stack(token.clone()));
+        });
+
+        // type mismatch
+        test_ops(|token, mut ops| {
+            ops.push(Nil);
+            assert_eq!(ops.apply1(incr), type_mismatch(token.clone()));
+        });
+
+        // ok
+        test_ops(|_, mut ops| {
+            ops.push(Int(456));
+            assert_eq!(ops.apply1(incr), Ok(()));
+            assert_eq!(ops.pop(), Ok(Int(457)));
+        });
+    }
+
+    #[test]
+    fn stack_apply2() {
+        fn sub(x: i64, y: i64) -> Value {
+            Int(x - y)
+        }
+
+        // insufficient stack
+        test_ops(|token, mut ops| {
+            assert_eq!(ops.apply2(sub), empty_stack(token.clone()));
+        });
+
+        // insufficient stack (only 1 item)
+        test_ops(|token, mut ops| {
+            ops.push(Int(5));
+            assert_eq!(ops.apply2(sub), empty_stack(token.clone()));
+        });
+
+        // type mismatch (first arg)
+        test_ops(|token, mut ops| {
+            ops.push(Int(5));
+            ops.push(Nil);
+            assert_eq!(ops.apply2(sub), type_mismatch(token.clone()));
+        });
+
+        // type mismatch (second arg)
+        test_ops(|token, mut ops| {
+            ops.push(Nil);
+            ops.push(Int(5));
+            assert_eq!(ops.apply2(sub), type_mismatch(token.clone()));
+        });
+
+        // ok
+        test_ops(|_, mut ops| {
+            ops.push(Int(3));
+            ops.push(Int(5));
+            assert_eq!(ops.apply2(sub), Ok(()));
+            assert_eq!(ops.pop(), Ok(Int(2)));
+        });
+    }
+
+    #[test]
+    fn stack_apply3() {
+        fn affine(a: i64, x: i64, b: i64) -> Value {
+            Int(a * x + b)
+        }
+
+        // insufficient stack
+        test_ops(|token, mut ops| {
+            assert_eq!(ops.apply3(affine), empty_stack(token.clone()));
+        });
+
+        // insufficient stack (only 1 item)
+        test_ops(|token, mut ops| {
+            ops.push(Int(5));
+            assert_eq!(ops.apply3(affine), empty_stack(token.clone()));
+        });
+
+        // insufficient stack (only 2 items)
+        test_ops(|token, mut ops| {
+            ops.push(Int(4));
+            ops.push(Int(5));
+            assert_eq!(ops.apply3(affine), empty_stack(token.clone()));
+        });
+
+        // type mismatch (first arg)
+        test_ops(|token, mut ops| {
+            ops.push(Int(3));
+            ops.push(Int(4));
+            ops.push(Nil);
+            assert_eq!(ops.apply3(affine), type_mismatch(token.clone()));
+        });
+
+        // type mismatch (second arg)
+        test_ops(|token, mut ops| {
+            ops.push(Int(3));
+            ops.push(Nil);
+            ops.push(Int(5));
+            assert_eq!(ops.apply3(affine), type_mismatch(token.clone()));
+        });
+
+        // type mismatch (third arg)
+        test_ops(|token, mut ops| {
+            ops.push(Nil);
+            ops.push(Int(4));
+            ops.push(Int(5));
+            assert_eq!(ops.apply3(affine), type_mismatch(token.clone()));
+        });
+
+        // ok
+        test_ops(|_, mut ops| {
+            ops.push(Int(3));
+            ops.push(Int(4));
+            ops.push(Int(5));
+            assert_eq!(ops.apply3(affine), Ok(()));
+            assert_eq!(ops.pop(), Ok(Int(5 * 4 + 3)));
+        });
+    }
+
+    fn test_ops<F: FnOnce(Token, StackOps)>(f: F) {
         let token = new_meaningless_token();
-        let empty_stack = Err(Error {
-            kind: ErrorKind::EmptyStack,
-            token: token.clone(),
-        });
-        let type_mismatch = Err(Error {
-            kind: ErrorKind::TypeMismatch,
-            token: token.clone(),
-        });
-
         let mut stack = Stack::new();
-        let mut ops = stack.operate_as(token);
-
-        assert_eq!(ops.apply1::<i64, _>(|x| Int(x)), empty_stack);
-
-        ops.push(Nil);
-        assert_eq!(ops.apply1::<i64, _>(|x| Int(x)), type_mismatch);
-
-        ops.push(Int(123));
-        assert_eq!(ops.apply1::<i64, _>(|x| Int(x)), Ok(()));
-        assert_eq!(ops.pop(), Ok(Int(123)));
-
-        ops.push(Int(456));
-        assert_eq!(ops.apply1::<i64, _>(|x| Int(x + 100)), Ok(()));
-        assert_eq!(ops.pop(), Ok(Int(556)));
+        let ops = stack.operate_as(token.clone());
+        f(token, ops);
     }
 
     fn new_meaningless_token() -> Token {
@@ -229,5 +357,19 @@ mod test {
             line: 0,
             column: 0,
         }
+    }
+
+    fn empty_stack<T>(token: Token) -> Result<T> {
+        Err(Error {
+            kind: ErrorKind::EmptyStack,
+            token: token,
+        })
+    }
+
+    fn type_mismatch<T>(token: Token) -> Result<T> {
+        Err(Error {
+            kind: ErrorKind::TypeMismatch,
+            token: token,
+        })
     }
 }
