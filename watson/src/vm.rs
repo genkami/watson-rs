@@ -1,6 +1,7 @@
 use std::path;
 use std::rc::Rc;
 
+use crate::value;
 use crate::value::Value;
 
 /// An instruction of the WATSON Virtual Machine.
@@ -64,6 +65,9 @@ pub struct Error {
 pub enum ErrorKind {
     /// The VM tried to pop values from an empty stack.
     EmptyStack,
+
+    /// The type of the value on the top of stack is different from the one that the instruction wants.
+    TypeMismatch,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -96,6 +100,28 @@ impl<'a> StackOps<'a> {
             }),
         }
     }
+
+    /// Pops a value from the stack, applies f to it, then pushes the result.
+    pub fn apply1<C1, F>(&mut self, f: F) -> Result<()>
+    where
+        C1: value::Claimer,
+        F: FnOnce(C1::Want) -> Value,
+    {
+        let v1 = self.pop()?;
+        let result = f(self.claim::<C1>(v1)?);
+        self.push(result);
+        Ok(())
+    }
+
+    fn claim<C: value::Claimer>(&self, v: Value) -> Result<C::Want> {
+        match C::to_inner(v) {
+            Some(x) => Ok(x),
+            None => Err(Error {
+                kind: ErrorKind::TypeMismatch,
+                token: self.token.clone(),
+            }),
+        }
+    }
 }
 
 impl Stack {
@@ -121,24 +147,19 @@ pub struct VM {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::value::claimer;
     use crate::value::Value::*;
 
     #[test]
     fn stack_push_and_pop() {
-        let meaningless_token = Token {
-            insn: Iadd,
-            ascii: b'X',
-            file_path: None,
-            line: 0,
-            column: 0,
-        };
+        let token = new_meaningless_token();
         let empty_stack = Err(Error {
             kind: ErrorKind::EmptyStack,
-            token: meaningless_token.clone(),
+            token: token.clone(),
         });
 
         let mut stack = Stack::new();
-        let mut ops = stack.operate_as(meaningless_token);
+        let mut ops = stack.operate_as(token);
 
         assert_eq!(ops.pop(), empty_stack);
 
@@ -149,5 +170,44 @@ mod test {
         assert_eq!(ops.pop(), Ok(Int(2)));
         assert_eq!(ops.pop(), Ok(Int(1)));
         assert_eq!(ops.pop(), empty_stack);
+    }
+
+    #[test]
+    fn stack_apply1() {
+        let token = new_meaningless_token();
+        let empty_stack = Err(Error {
+            kind: ErrorKind::EmptyStack,
+            token: token.clone(),
+        });
+        let type_mismatch = Err(Error {
+            kind: ErrorKind::TypeMismatch,
+            token: token.clone(),
+        });
+
+        let mut stack = Stack::new();
+        let mut ops = stack.operate_as(token);
+
+        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x)), empty_stack);
+
+        ops.push(Nil);
+        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x)), type_mismatch);
+
+        ops.push(Int(123));
+        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x)), Ok(()));
+        assert_eq!(ops.pop(), Ok(Int(123)));
+
+        ops.push(Int(456));
+        assert_eq!(ops.apply1::<claimer::Int, _>(|x| Int(x + 100)), Ok(()));
+        assert_eq!(ops.pop(), Ok(Int(556)));
+    }
+
+    fn new_meaningless_token() -> Token {
+        Token {
+            insn: Iadd,
+            ascii: b'X',
+            file_path: None,
+            line: 0,
+            column: 0,
+        }
     }
 }
