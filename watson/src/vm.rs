@@ -11,6 +11,7 @@ pub enum Value {
     String(Vec<u8>),
     Object(Map),
     Array(Vec<Value>),
+    Bool(bool),
     Nil,
 }
 
@@ -112,6 +113,19 @@ impl IsValue for Vec<Value> {
 
     fn into_value(self) -> Value {
         Array(self)
+    }
+}
+
+impl IsValue for bool {
+    fn from_value(v: Value) -> Option<bool> {
+        match v {
+            Bool(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    fn into_value(self) -> Value {
+        Bool(self)
     }
 }
 
@@ -346,6 +360,8 @@ impl VM {
                 a.push(v);
                 a
             }),
+            Bnew => push(&mut ops, false),
+            Bneg => ops.apply1(|b: bool| !b),
             _ => todo!(),
         }
     }
@@ -752,6 +768,31 @@ mod test {
             Some(&Array(vec![Int(123), String(b"hello".to_vec())]))
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_bnew() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Bnew))?;
+        assert_eq!(vm.peek_top(), Some(&Bool(false)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_bneg() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Bnew))?;
+        assert_eq!(vm.peek_top(), Some(&Bool(false)));
+
+        vm.execute(new_token(Bneg))?;
+        assert_eq!(vm.peek_top(), Some(&Bool(true)));
+
+        vm.execute(new_token(Bneg))?;
+        assert_eq!(vm.peek_top(), Some(&Bool(false)));
         Ok(())
     }
 
