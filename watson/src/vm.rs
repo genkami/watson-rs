@@ -257,12 +257,15 @@ impl VM {
     /// Executes a single instruction.
     pub fn execute(&mut self, t: Token) -> Result<()> {
         let mut ops = self.stack.operate_as(t.clone());
+
+        fn push<T: IsValue>(ops: &mut StackOps, x: T) -> Result<()> {
+            ops.push(x.into_value());
+            Ok(())
+        }
+
         // See https://github.com/genkami/watson/blob/main/doc/spec.md#instructions.
         match t.insn {
-            Inew => {
-                ops.push(Int(0));
-                Ok(())
-            }
+            Inew => push(&mut ops, 0_i64),
             Iinc => ops.apply1(|x: i64| x + 1),
             Ishl => ops.apply1(|x: i64| x << 1),
             Iadd => ops.apply2(|y: i64, x: i64| x + y),
@@ -270,6 +273,9 @@ impl VM {
             Isht => ops.apply2(|y: i64, x: i64| x << y),
             Itof => ops.apply1(|x: i64| f64::from_bits(x as u64)),
             Itou => ops.apply1(|x: i64| x as u64),
+            Finf => push(&mut ops, f64::INFINITY),
+            Fnan => push(&mut ops, f64::NAN),
+            Fneg => ops.apply1(|x: f64| -x),
             _ => todo!(),
         }
     }
@@ -523,6 +529,49 @@ mod test {
         ops.push(Int(-1));
         vm.execute(new_token(Itou))?;
         assert_eq!(vm.peek_top(), Some(&Uint(0xffff_ffff_ffff_ffff)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_finf() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Finf))?;
+        let top = vm.peek_top().clone();
+        let f = match top {
+            Some(Float(f)) => f,
+            _ => panic!("not a float: {:?}", top),
+        };
+        assert!(f.is_infinite());
+        assert!(f.is_sign_positive());
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_fnan() -> Result<()> {
+        let mut vm = VM::new();
+
+        vm.execute(new_token(Fnan))?;
+        let top = vm.peek_top().clone();
+        let f = match top {
+            Some(Float(f)) => f,
+            _ => panic!("not a float: {:?}", top),
+        };
+        assert!(f.is_nan());
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_fneg() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Float(1.23));
+        vm.execute(new_token(Fneg))?;
+        assert_eq!(vm.peek_top(), Some(&Float(-1.23)));
 
         Ok(())
     }
