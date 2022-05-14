@@ -178,10 +178,12 @@ impl<R: io::Read> Lexer<R> {
                 Some(insn) => {
                     token = vm::Token {
                         insn: insn,
-                        ascii: byte,
-                        file_path: self.file_path.clone(),
-                        line: self.line,
-                        column: self.column,
+                        location: Location {
+                            ascii: byte,
+                            path: self.file_path.clone(),
+                            line: self.line,
+                            column: self.column,
+                        },
                     };
                     break;
                 }
@@ -337,10 +339,12 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: None,
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: None,
+                    line: 1,
+                    column: 1,
+                },
             },
         );
     }
@@ -353,10 +357,12 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'S',
-                file_path: None,
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'S',
+                    path: None,
+                    line: 1,
+                    column: 1,
+                },
             },
         );
     }
@@ -369,10 +375,12 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: None,
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: None,
+                    line: 1,
+                    column: 1,
+                },
             },
         );
     }
@@ -386,10 +394,12 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: Some(path.to_path_buf().into()),
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: Some(path.to_path_buf().into()),
+                    line: 1,
+                    column: 1,
+                },
             },
         );
     }
@@ -399,8 +409,10 @@ mod test {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
-        let mut tempfile = NamedTempFile::new()?;
-        tempfile.write_all(b"Bubba")?;
+        let mut tempfile = NamedTempFile::new().into_vm_result(|| Location::unknown())?;
+        tempfile
+            .write_all(b"Bubba")
+            .into_vm_result(|| Location::unknown())?;
         let path = tempfile.into_temp_path();
 
         let mut lexer = Builder::new().open(path.to_path_buf())?;
@@ -408,10 +420,12 @@ mod test {
             lexer.next_token()?,
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: Some(path.to_path_buf().into()),
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: Some(path.to_path_buf().into()),
+                    line: 1,
+                    column: 1,
+                },
             },
         );
         Ok(())
@@ -422,8 +436,10 @@ mod test {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
-        let mut tempfile = NamedTempFile::new()?;
-        tempfile.write_all(b"Bubba")?;
+        let mut tempfile = NamedTempFile::new().into_vm_result(|| Location::unknown())?;
+        tempfile
+            .write_all(b"Bubba")
+            .into_vm_result(|| Location::unknown())?;
         let path = tempfile.into_temp_path();
         let path_to_display = path::Path::new("anothername.watson");
 
@@ -434,10 +450,12 @@ mod test {
             lexer.next_token()?,
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: Some(path_to_display.to_path_buf().into()),
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: Some(path_to_display.to_path_buf().into()),
+                    line: 1,
+                    column: 1,
+                },
             },
         );
         Ok(())
@@ -451,30 +469,36 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: None,
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: None,
+                    line: 1,
+                    column: 1,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Iinc,
-                ascii: b'u',
-                file_path: None,
-                line: 1,
-                column: 2,
+                location: Location {
+                    ascii: b'u',
+                    path: None,
+                    line: 1,
+                    column: 2,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Ishl,
-                ascii: b'b',
-                file_path: None,
-                line: 1,
-                column: 3,
+                location: Location {
+                    ascii: b'b',
+                    path: None,
+                    line: 1,
+                    column: 3,
+                },
             },
         );
 
@@ -483,20 +507,24 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Ishl,
-                ascii: b'b',
-                file_path: None,
-                line: 2,
-                column: 1,
+                location: Location {
+                    ascii: b'b',
+                    path: None,
+                    line: 2,
+                    column: 1,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Iadd,
-                ascii: b'a',
-                file_path: None,
-                line: 2,
-                column: 2,
+                location: Location {
+                    ascii: b'a',
+                    path: None,
+                    line: 2,
+                    column: 2,
+                },
             },
         );
     }
@@ -509,30 +537,36 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: None,
-                line: 1,
-                column: 1,
+                location: Location {
+                    ascii: b'B',
+                    path: None,
+                    line: 1,
+                    column: 1,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Iinc,
-                ascii: b'u',
-                file_path: None,
-                line: 1,
-                column: 2,
+                location: Location {
+                    ascii: b'u',
+                    path: None,
+                    line: 1,
+                    column: 2,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Snew,
-                ascii: b'?',
-                file_path: None,
-                line: 1,
-                column: 3,
+                location: Location {
+                    ascii: b'?',
+                    path: None,
+                    line: 1,
+                    column: 3,
+                },
             },
         );
 
@@ -541,30 +575,36 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'S',
-                file_path: None,
-                line: 1,
-                column: 4,
+                location: Location {
+                    ascii: b'S',
+                    path: None,
+                    line: 1,
+                    column: 4,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Iinc,
-                ascii: b'h',
-                file_path: None,
-                line: 1,
-                column: 5,
+                location: Location {
+                    ascii: b'h',
+                    path: None,
+                    line: 1,
+                    column: 5,
+                },
             },
         );
         assert_eq!(
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Snew,
-                ascii: b'$',
-                file_path: None,
-                line: 1,
-                column: 6,
+                location: Location {
+                    ascii: b'$',
+                    path: None,
+                    line: 1,
+                    column: 6,
+                },
             },
         );
         // Lexer hits `Onew`, so it changes its mode to `A`.
@@ -572,10 +612,12 @@ mod test {
             lexer.next_token().unwrap(),
             vm::Token {
                 insn: vm::Insn::Inew,
-                ascii: b'B',
-                file_path: None,
-                line: 1,
-                column: 7,
+                location: Location {
+                    ascii: b'B',
+                    path: None,
+                    line: 1,
+                    column: 7,
+                },
             },
         );
     }

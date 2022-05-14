@@ -1,6 +1,3 @@
-use std::path;
-use std::rc::Rc;
-
 use crate::error;
 use crate::value::*;
 
@@ -41,24 +38,8 @@ pub struct Token {
     /// A VM instruction that the token represents.
     pub insn: Insn,
 
-    /// An ASCII character that represents the instruction.
-    pub ascii: u8,
-
-    /// Location of the instrution.
-    pub file_path: Option<Rc<path::Path>>,
-    pub line: usize,
-    pub column: usize,
-}
-
-impl Token {
-    pub fn location(&self) -> error::Location {
-        error::Location {
-            ascii: self.ascii,
-            path: self.file_path.as_ref().map(|rc| Rc::clone(rc)),
-            line: self.line,
-            column: self.column,
-        }
-    }
+    /// Location of the instruction.
+    pub location: error::Location,
 }
 
 // The error type of the WATSON VM.
@@ -785,10 +766,12 @@ mod test {
     fn new_token(insn: Insn) -> Token {
         Token {
             insn: insn,
-            ascii: b'X',
-            file_path: None,
-            line: 0,
-            column: 0,
+            location: error::Location {
+                ascii: b'X',
+                path: None,
+                line: 0,
+                column: 0,
+            },
         }
     }
 
