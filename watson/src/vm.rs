@@ -100,6 +100,30 @@ pub struct Stack {
     vec: Vec<Value>,
 }
 
+impl Stack {
+    pub fn new() -> Self {
+        Stack { vec: Vec::new() }
+    }
+
+    /// Returns a StackOps that can manipulate the stack on behalf of the instruction given by the token.
+    pub fn operate_as(&mut self, token: Token) -> StackOps<'_> {
+        StackOps {
+            stack: self,
+            token: token,
+        }
+    }
+
+    /// Returns a value on the top of the stack without consuming it.
+    pub fn peek_top(&self) -> Option<&Value> {
+        let len = self.vec.len();
+        if len <= 0 {
+            None
+        } else {
+            Some(&self.vec[len - 1])
+        }
+    }
+}
+
 /// StackOps does operations on a stack on behalf of some instruction.
 pub struct StackOps<'a> {
     stack: &'a mut Stack,
@@ -178,24 +202,36 @@ impl<'a> StackOps<'a> {
     }
 }
 
-impl Stack {
-    pub fn new() -> Self {
-        Stack { vec: Vec::new() }
-    }
-
-    /// Returns a StackOps that can manipulate the stack on behalf of the instruction given by the token.
-    pub fn operate_as(&mut self, token: Token) -> StackOps<'_> {
-        StackOps {
-            stack: self,
-            token: token,
-        }
-    }
-}
-
 /// A WATSON Virturl Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 pub struct VM {
     stack: Stack,
+}
+
+impl VM {
+    /// Returns a new `VM`.
+    pub fn new() -> Self {
+        VM {
+            stack: Stack::new(),
+        }
+    }
+
+    /// Executes a single instruction.
+    pub fn execute(&mut self, t: Token) -> Result<()> {
+        let mut ops = self.stack.operate_as(t.clone());
+        match t.insn {
+            Inew => {
+                ops.push(Int(0));
+                Ok(())
+            }
+            _ => todo!(),
+        }
+    }
+
+    /// Returns a `Value` on the top of the stack.
+    pub fn peek_top(&self) -> Option<&Value> {
+        self.stack.peek_top()
+    }
 }
 
 #[cfg(test)]
@@ -342,6 +378,21 @@ mod test {
         });
     }
 
+    #[test]
+    fn test_inew() -> Result<()> {
+        let mut vm = VM::new();
+
+        assert_eq!(vm.peek_top(), None);
+        vm.execute(new_token(Inew))?;
+        assert_eq!(vm.peek_top(), Some(&Int(0)));
+
+        Ok(())
+    }
+
+    /*
+     * Helper functions
+     */
+
     fn test_ops<F: FnOnce(Token, StackOps)>(f: F) {
         let token = new_meaningless_token();
         let mut stack = Stack::new();
@@ -350,8 +401,12 @@ mod test {
     }
 
     fn new_meaningless_token() -> Token {
+        new_token(Iadd)
+    }
+
+    fn new_token(insn: Insn) -> Token {
         Token {
-            insn: Iadd,
+            insn: insn,
             ascii: b'X',
             file_path: None,
             line: 0,
