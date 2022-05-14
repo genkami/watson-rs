@@ -1,4 +1,4 @@
-use crate::error;
+use crate::error::*;
 use crate::value::*;
 
 /// An instruction of the WATSON Virtual Machine.
@@ -39,31 +39,8 @@ pub struct Token {
     pub insn: Insn,
 
     /// Location of the instruction.
-    pub location: error::Location,
+    pub location: Location,
 }
-
-// The error type of the WATSON VM.
-// TODO: make this std::error::Error
-#[derive(Eq, PartialEq, Debug)]
-pub struct Error {
-    /// Represents details of the error.
-    pub kind: ErrorKind,
-
-    /// The location where the error happened.
-    pub token: Token,
-}
-
-/// Details of the `Error`.
-#[derive(Eq, PartialEq, Debug)]
-pub enum ErrorKind {
-    /// The VM tried to pop values from an empty stack.
-    EmptyStack,
-
-    /// The type of the value on the top of stack is different from the one that the instruction wants.
-    TypeMismatch,
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 /// A stack of the WATSON VM.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -113,7 +90,8 @@ impl<'a> StackOps<'a> {
             Some(x) => Ok(x),
             None => Err(Error {
                 kind: ErrorKind::EmptyStack,
-                token: self.token.clone(),
+                location: self.token.location.clone(),
+                source: None,
             }),
         }
     }
@@ -170,7 +148,8 @@ impl<'a> StackOps<'a> {
             Some(x) => Ok(x),
             None => Err(Error {
                 kind: ErrorKind::TypeMismatch,
-                token: self.token.clone(),
+                location: self.token.location.clone(),
+                source: None,
             }),
         }
     }
@@ -268,24 +247,28 @@ mod test {
     use super::*;
 
     #[test]
-    fn stack_push_and_pop() {
+    fn stack_push_and_pop() -> Result<()> {
         test_ops(|mut ops| {
             assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         test_ops(|mut ops| {
             ops.push(Int(1));
             ops.push(Int(2));
             ops.push(Int(3));
-            assert_eq!(ops.pop(), Ok(Int(3)));
-            assert_eq!(ops.pop(), Ok(Int(2)));
-            assert_eq!(ops.pop(), Ok(Int(1)));
+            assert_eq!(ops.pop()?, Int(3));
+            assert_eq!(ops.pop()?, Int(2));
+            assert_eq!(ops.pop()?, Int(1));
             assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
+
+        Ok(())
     }
 
     #[test]
-    fn stack_apply1() {
+    fn stack_apply1() -> Result<()> {
         fn incr(x: i64) -> i64 {
             x + 1
         }
@@ -293,24 +276,29 @@ mod test {
         // insufficient stack
         test_ops(|mut ops| {
             assert_error_kind_is(ops.apply1(incr), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         // type mismatch
         test_ops(|mut ops| {
             ops.push(Nil);
             assert_error_kind_is(ops.apply1(incr), ErrorKind::TypeMismatch);
-        });
+            Ok(())
+        })?;
 
         // ok
         test_ops(|mut ops| {
             ops.push(Int(456));
-            assert_eq!(ops.apply1(incr), Ok(()));
-            assert_eq!(ops.pop(), Ok(Int(457)));
-        });
+            ops.apply1(incr)?;
+            assert_eq!(ops.pop()?, Int(457));
+            Ok(())
+        })?;
+
+        Ok(())
     }
 
     #[test]
-    fn stack_apply2() {
+    fn stack_apply2() -> Result<()> {
         fn sub(x: i64, y: i64) -> i64 {
             x - y
         }
@@ -318,39 +306,46 @@ mod test {
         // insufficient stack
         test_ops(|mut ops| {
             assert_error_kind_is(ops.apply2(sub), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         // insufficient stack (only 1 item)
         test_ops(|mut ops| {
             ops.push(Int(5));
             assert_error_kind_is(ops.apply2(sub), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         // type mismatch (first arg)
         test_ops(|mut ops| {
             ops.push(Int(5));
             ops.push(Nil);
             assert_error_kind_is(ops.apply2(sub), ErrorKind::TypeMismatch);
-        });
+            Ok(())
+        })?;
 
         // type mismatch (second arg)
         test_ops(|mut ops| {
             ops.push(Nil);
             ops.push(Int(5));
             assert_error_kind_is(ops.apply2(sub), ErrorKind::TypeMismatch);
-        });
+            Ok(())
+        })?;
 
         // ok
         test_ops(|mut ops| {
             ops.push(Int(3));
             ops.push(Int(5));
-            assert_eq!(ops.apply2(sub), Ok(()));
-            assert_eq!(ops.pop(), Ok(Int(2)));
-        });
+            ops.apply2(sub)?;
+            assert_eq!(ops.pop()?, Int(2));
+            Ok(())
+        })?;
+
+        Ok(())
     }
 
     #[test]
-    fn stack_apply3() {
+    fn stack_apply3() -> Result<()> {
         fn affine(a: i64, x: i64, b: i64) -> i64 {
             a * x + b
         }
@@ -358,20 +353,23 @@ mod test {
         // insufficient stack
         test_ops(|mut ops| {
             assert_error_kind_is(ops.apply3(affine), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         // insufficient stack (only 1 item)
         test_ops(|mut ops| {
             ops.push(Int(5));
             assert_error_kind_is(ops.apply3(affine), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         // insufficient stack (only 2 items)
         test_ops(|mut ops| {
             ops.push(Int(4));
             ops.push(Int(5));
             assert_error_kind_is(ops.apply3(affine), ErrorKind::EmptyStack);
-        });
+            Ok(())
+        })?;
 
         // type mismatch (first arg)
         test_ops(|mut ops| {
@@ -379,7 +377,8 @@ mod test {
             ops.push(Int(4));
             ops.push(Nil);
             assert_error_kind_is(ops.apply3(affine), ErrorKind::TypeMismatch);
-        });
+            Ok(())
+        })?;
 
         // type mismatch (second arg)
         test_ops(|mut ops| {
@@ -387,7 +386,8 @@ mod test {
             ops.push(Nil);
             ops.push(Int(5));
             assert_error_kind_is(ops.apply3(affine), ErrorKind::TypeMismatch);
-        });
+            Ok(())
+        })?;
 
         // type mismatch (third arg)
         test_ops(|mut ops| {
@@ -395,16 +395,20 @@ mod test {
             ops.push(Int(4));
             ops.push(Int(5));
             assert_error_kind_is(ops.apply3(affine), ErrorKind::TypeMismatch);
-        });
+            Ok(())
+        })?;
 
         // ok
         test_ops(|mut ops| {
             ops.push(Int(3));
             ops.push(Int(4));
             ops.push(Int(5));
-            assert_eq!(ops.apply3(affine), Ok(()));
-            assert_eq!(ops.pop(), Ok(Int(5 * 4 + 3)));
-        });
+            ops.apply3(affine)?;
+            assert_eq!(ops.pop()?, Int(5 * 4 + 3));
+            Ok(())
+        })?;
+
+        Ok(())
     }
 
     #[test]
@@ -700,8 +704,8 @@ mod test {
         vm.execute(new_token(Gdup))?;
 
         let mut ops = vm.borrow_stack_mut().force_operate();
-        assert_eq!(ops.pop(), Ok(Int(123)));
-        assert_eq!(ops.pop(), Ok(Int(123)));
+        assert_eq!(ops.pop()?, Int(123));
+        assert_eq!(ops.pop()?, Int(123));
         assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
 
         Ok(())
@@ -717,7 +721,7 @@ mod test {
         vm.execute(new_token(Gpop))?;
 
         let mut ops = vm.borrow_stack_mut().force_operate();
-        assert_eq!(ops.pop(), Ok(Int(111)));
+        assert_eq!(ops.pop()?, Int(111));
         assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
 
         Ok(())
@@ -733,8 +737,8 @@ mod test {
         vm.execute(new_token(Gswp))?;
 
         let mut ops = vm.borrow_stack_mut().force_operate();
-        assert_eq!(ops.pop(), Ok(Int(111)));
-        assert_eq!(ops.pop(), Ok(Uint(222)));
+        assert_eq!(ops.pop()?, Int(111));
+        assert_eq!(ops.pop()?, Uint(222));
         assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
 
         Ok(())
@@ -754,9 +758,9 @@ mod test {
         }
     }
 
-    fn test_ops<F: FnOnce(StackOps)>(f: F) {
+    fn test_ops<F: FnOnce(StackOps) -> Result<()>>(f: F) -> Result<()> {
         let mut stack = Stack::new();
-        f(stack.force_operate());
+        f(stack.force_operate())
     }
 
     fn new_meaningless_token() -> Token {
@@ -766,7 +770,7 @@ mod test {
     fn new_token(insn: Insn) -> Token {
         Token {
             insn: insn,
-            location: error::Location {
+            location: Location {
                 ascii: b'X',
                 path: None,
                 line: 0,
