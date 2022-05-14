@@ -3,9 +3,11 @@ use std::rc::Rc;
 
 /// A value that is defined in WATSON specification.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum Value {
     Int(i64),
+    Uint(u64),
+    Float(f64),
     Nil,
 }
 
@@ -14,6 +16,7 @@ pub use Value::*;
 /// A type that can be converted directly from `Value`.
 pub trait FromValue: Sized {
     /// Converts a `Value` into its expected type.
+    /// TODO: rename this to `from_value`.
     fn to_inner(v: Value) -> Option<Self>;
 }
 
@@ -230,6 +233,8 @@ impl VM {
             Iadd => ops.apply2(|y: i64, x: i64| Int(x + y)),
             Ineg => ops.apply1(|x: i64| Int(-x)),
             Isht => ops.apply2(|y: i64, x: i64| Int(x << y)),
+            Itof => ops.apply1(|x: i64| Float(f64::from_bits(x as u64))),
+            Itou => ops.apply1(|x: i64| Uint(x as u64)),
             _ => todo!(),
         }
     }
@@ -458,6 +463,31 @@ mod test {
         ops.push(Int(2));
         vm.execute(new_token(Isht))?;
         assert_eq!(vm.peek_top(), Some(&Int(12)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_itof() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+        let f: f64 = 1.234e-56;
+
+        ops.push(Int(f.to_bits() as i64));
+        vm.execute(new_token(Itof))?;
+        assert_eq!(vm.peek_top(), Some(&Float(f)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_itou() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(-1));
+        vm.execute(new_token(Itou))?;
+        assert_eq!(vm.peek_top(), Some(&Uint(0xffff_ffff_ffff_ffff)));
 
         Ok(())
     }
