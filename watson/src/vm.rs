@@ -26,10 +26,3 @@ pub enum Insn {
     Gpop,
     Gswp,
 }
-
-use Insn::*;
-
-pub const ALL_INSNS: [Insn; 23] = [
-    Inew, Iinc, Ishl, Iadd, Ineg, Isht, Itof, Itou, Finf, Fnan, Fneg, Snew, Sadd, Onew, Oadd, Anew,
-    Aadd, Bnew, Bneg, Nnew, Gdup, Gpop, Gswp,
-];
