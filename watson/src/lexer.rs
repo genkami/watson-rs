@@ -84,21 +84,6 @@ impl Mode {
     }
 }
 
-/// A token of the WATSON language.
-#[derive(Debug, Eq, PartialEq)]
-pub struct Token {
-    /// A VM instruction that the token represents.
-    pub insn: vm::Insn,
-
-    /// An ASCII character that represents the instruction.
-    pub ascii: u8,
-
-    /// Location of the instrution.
-    pub file_path: Option<Rc<path::Path>>,
-    pub line: usize,
-    pub column: usize,
-}
-
 /// A lexer of the WATSON language.
 pub struct Lexer<R: io::Read> {
     reader: R,
@@ -185,8 +170,8 @@ impl Builder {
 
 impl<R: io::Read> Lexer<R> {
     /// Returns a next token if exists.
-    pub fn next_token(&mut self) -> Result<Token> {
-        let token: Token;
+    pub fn next_token(&mut self) -> Result<vm::Token> {
+        let token: vm::Token;
         loop {
             let byte = self.next_byte()?;
             match self.mode.ascii_to_insn(byte) {
@@ -194,7 +179,7 @@ impl<R: io::Read> Lexer<R> {
                     continue;
                 }
                 Some(insn) => {
-                    token = Token {
+                    token = vm::Token {
                         insn: insn,
                         ascii: byte,
                         file_path: self.file_path.clone(),
@@ -340,7 +325,7 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: None,
@@ -356,7 +341,7 @@ mod test {
         let mut lexer = Builder::new().initial_mode(Mode::S).build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'S',
                 file_path: None,
@@ -372,7 +357,7 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: None,
@@ -389,7 +374,7 @@ mod test {
         let mut lexer = Builder::new().file_path(path).build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: Some(path.to_path_buf().into()),
@@ -411,7 +396,7 @@ mod test {
         let mut lexer = Builder::new().open(path.to_path_buf())?;
         assert_eq!(
             lexer.next_token()?,
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: Some(path.to_path_buf().into()),
@@ -437,7 +422,7 @@ mod test {
             .open(path.to_path_buf())?;
         assert_eq!(
             lexer.next_token()?,
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: Some(path_to_display.to_path_buf().into()),
@@ -454,7 +439,7 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: None,
@@ -464,7 +449,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Iinc,
                 ascii: b'u',
                 file_path: None,
@@ -474,7 +459,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Ishl,
                 ascii: b'b',
                 file_path: None,
@@ -486,7 +471,7 @@ mod test {
         // lexer hits \n here
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Ishl,
                 ascii: b'b',
                 file_path: None,
@@ -496,7 +481,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Iadd,
                 ascii: b'a',
                 file_path: None,
@@ -512,7 +497,7 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: None,
@@ -522,7 +507,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Iinc,
                 ascii: b'u',
                 file_path: None,
@@ -532,7 +517,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Snew,
                 ascii: b'?',
                 file_path: None,
@@ -544,7 +529,7 @@ mod test {
         // Lexer hits `Onew`, so it changes its mode to `S`.
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'S',
                 file_path: None,
@@ -554,7 +539,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Iinc,
                 ascii: b'h',
                 file_path: None,
@@ -564,7 +549,7 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Snew,
                 ascii: b'$',
                 file_path: None,
@@ -575,7 +560,7 @@ mod test {
         // Lexer hits `Onew`, so it changes its mode to `A`.
         assert_eq!(
             lexer.next_token().unwrap(),
-            Token {
+            vm::Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
                 file_path: None,

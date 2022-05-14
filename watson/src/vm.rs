@@ -1,3 +1,6 @@
+use std::path;
+use std::rc::Rc;
+
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
@@ -28,6 +31,21 @@ pub enum Insn {
 }
 
 pub use Insn::*;
+
+/// A token of the WATSON language.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Token {
+    /// A VM instruction that the token represents.
+    pub insn: Insn,
+
+    /// An ASCII character that represents the instruction.
+    pub ascii: u8,
+
+    /// Location of the instrution.
+    pub file_path: Option<Rc<path::Path>>,
+    pub line: usize,
+    pub column: usize,
+}
 
 /// A value that is defined in WATSON specification.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
