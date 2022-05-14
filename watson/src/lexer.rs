@@ -41,7 +41,7 @@ mod conv {
 
 /// A "mode" of the WATSON lexer.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Debug)]
 pub enum Mode {
     /// The A mode.
     A,
@@ -78,9 +78,13 @@ impl Mode {
 }
 
 /// A token of the WATSON language.
+#[derive(Debug, Eq, PartialEq)]
 pub struct Token {
     /// A VM instruction that the token represents.
     pub insn: vm::Insn,
+
+    /// An ASCII character that represents the instruction.
+    pub ascii: u8,
 
     /// Location of the instrution.
     pub file_path: Option<path::PathBuf>,
@@ -104,19 +108,10 @@ pub struct Lexer<R: io::Read> {
 }
 
 /// The error type for `Lexer`.
-pub enum Error {
-    IOError(io::Error),
-    Unexpected,
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
-        Error::IOError(e)
-    }
-}
+pub type Error = io::Error;
 
 /// The specialized `Result` type for `Lexer`.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = io::Result<T>;
 
 /// A builder for `Lexer`.
 pub struct Builder {
@@ -176,7 +171,7 @@ impl Builder {
             current: 0,
             mode: mode,
             file_path: path,
-            line: 0,
+            line: 1,
             column: 0,
         }
     }
@@ -195,6 +190,7 @@ impl<R: io::Read> Lexer<R> {
                 Some(insn) => {
                     token = Token {
                         insn: insn,
+                        ascii: byte,
                         file_path: self.file_path.clone(),
                         line: self.line,
                         column: self.column,
@@ -330,5 +326,96 @@ mod test {
 
         assert_injective(Mode::A);
         assert_injective(Mode::S);
+    }
+
+    #[test]
+    fn builder_initial_mode_defaults_to_a() {
+        let asciis = b"".to_vec();
+        let lexer = Builder::new().build(&asciis[..]);
+        assert_eq!(lexer.mode, Mode::A);
+    }
+
+    #[test]
+    fn builder_file_path_defaults_to_none() {
+        let asciis = b"Bubba".to_vec();
+        let mut lexer = Builder::new().build(&asciis[..]);
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: None,
+                line: 1,
+                column: 1,
+            },
+        );
+    }
+
+    #[test]
+    fn builder_file_path_can_be_overridden() {
+        let asciis = b"Bubba".to_vec();
+        let path = path::Path::new("test.watson");
+        let mut lexer = Builder::new()
+            .file_path(path.to_path_buf())
+            .build(&asciis[..]);
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: Some(path.to_path_buf()),
+                line: 1,
+                column: 1,
+            },
+        );
+    }
+
+    #[test]
+    fn builder_open_opens_a_file() -> Result<()> {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let mut tempfile = NamedTempFile::new()?;
+        tempfile.write_all(b"Bubba")?;
+        let path = tempfile.into_temp_path();
+
+        let mut lexer = Builder::new().open(path.to_path_buf())?;
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: Some(path.to_path_buf()),
+                line: 1,
+                column: 1,
+            },
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn builder_open_path_can_be_overridden() -> Result<()> {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let mut tempfile = NamedTempFile::new()?;
+        tempfile.write_all(b"Bubba")?;
+        let path = tempfile.into_temp_path();
+        let path_to_display = path::Path::new("anothername.watson");
+
+        let mut lexer = Builder::new()
+            .file_path(path_to_display.to_path_buf())
+            .open(path.to_path_buf())?;
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: Some(path_to_display.to_path_buf()),
+                line: 1,
+                column: 1,
+            },
+        );
+        Ok(())
     }
 }
