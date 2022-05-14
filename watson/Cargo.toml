@@ -2,6 +2,11 @@
 name = "watson"
 version = "0.1.0"
 edition = "2021"
+authors = ["Genta Kamitani <oftn.mofumofu@gmail.com>"]
+license-file = "LICENSE"
+description = "Rust implementation for Wasted but Amazing Turing-incomplete Stack-based Object Notation (WATSON)"
+repository = "https://github.com/genkami/watson-rs"
+categories = ["encoding"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
