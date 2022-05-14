@@ -19,7 +19,7 @@ pub trait IsValue: Sized {
     fn from_value(v: Value) -> Option<Self>;
 
     /// Converts self into a `Value`.
-    fn to_value(self) -> Value;
+    fn into_value(self) -> Value;
 }
 
 impl IsValue for i64 {
@@ -30,7 +30,7 @@ impl IsValue for i64 {
         }
     }
 
-    fn to_value(self) -> Value {
+    fn into_value(self) -> Value {
         Int(self)
     }
 }
@@ -43,7 +43,7 @@ impl IsValue for u64 {
         }
     }
 
-    fn to_value(self) -> Value {
+    fn into_value(self) -> Value {
         Uint(self)
     }
 }
@@ -56,7 +56,7 @@ impl IsValue for f64 {
         }
     }
 
-    fn to_value(self) -> Value {
+    fn into_value(self) -> Value {
         Float(self)
     }
 }
@@ -183,51 +183,54 @@ impl<'a> StackOps<'a> {
     }
 
     /// Pops a value from the stack, applies f to it, then pushes the result.
-    pub fn apply1<C1, F>(&mut self, f: F) -> Result<()>
+    pub fn apply1<T1, R, F>(&mut self, f: F) -> Result<()>
     where
-        C1: IsValue,
-        F: FnOnce(C1) -> Value,
+        T1: IsValue,
+        R: IsValue,
+        F: FnOnce(T1) -> R,
     {
         let v1 = self.pop()?;
         let result = f(self.claim(v1)?);
-        self.push(result);
+        self.push(result.into_value());
         Ok(())
     }
 
     /// Pops two values from the stack, applies f to them, then pushes the result.
     /// The leftmost argument corresponds to the top of the stack.
-    pub fn apply2<C1, C2, F>(&mut self, f: F) -> Result<()>
+    pub fn apply2<T1, T2, R, F>(&mut self, f: F) -> Result<()>
     where
-        C1: IsValue,
-        C2: IsValue,
-        F: FnOnce(C1, C2) -> Value,
+        T1: IsValue,
+        T2: IsValue,
+        R: IsValue,
+        F: FnOnce(T1, T2) -> R,
     {
         let v1 = self.pop()?;
         let v2 = self.pop()?;
         let result = f(self.claim(v1)?, self.claim(v2)?);
-        self.push(result);
+        self.push(result.into_value());
         Ok(())
     }
 
     /// Pops three values from the stack, applies f to them, then pushes the result.
     /// The leftmost argument corresponds to the top of the stack.
-    pub fn apply3<C1, C2, C3, F>(&mut self, f: F) -> Result<()>
+    pub fn apply3<T1, T2, T3, R, F>(&mut self, f: F) -> Result<()>
     where
-        C1: IsValue,
-        C2: IsValue,
-        C3: IsValue,
-        F: FnOnce(C1, C2, C3) -> Value,
+        T1: IsValue,
+        T2: IsValue,
+        T3: IsValue,
+        R: IsValue,
+        F: FnOnce(T1, T2, T3) -> R,
     {
         let v1 = self.pop()?;
         let v2 = self.pop()?;
         let v3 = self.pop()?;
         let result = f(self.claim(v1)?, self.claim(v2)?, self.claim(v3)?);
-        self.push(result);
+        self.push(result.into_value());
         Ok(())
     }
 
-    fn claim<C: IsValue>(&self, v: Value) -> Result<C> {
-        match C::from_value(v) {
+    fn claim<T: IsValue>(&self, v: Value) -> Result<T> {
+        match T::from_value(v) {
             Some(x) => Ok(x),
             None => Err(Error {
                 kind: ErrorKind::TypeMismatch,
@@ -260,13 +263,13 @@ impl VM {
                 ops.push(Int(0));
                 Ok(())
             }
-            Iinc => ops.apply1(|x: i64| Int(x + 1)),
-            Ishl => ops.apply1(|x: i64| Int(x << 1)),
-            Iadd => ops.apply2(|y: i64, x: i64| Int(x + y)),
-            Ineg => ops.apply1(|x: i64| Int(-x)),
-            Isht => ops.apply2(|y: i64, x: i64| Int(x << y)),
-            Itof => ops.apply1(|x: i64| Float(f64::from_bits(x as u64))),
-            Itou => ops.apply1(|x: i64| Uint(x as u64)),
+            Iinc => ops.apply1(|x: i64| x + 1),
+            Ishl => ops.apply1(|x: i64| x << 1),
+            Iadd => ops.apply2(|y: i64, x: i64| x + y),
+            Ineg => ops.apply1(|x: i64| -x),
+            Isht => ops.apply2(|y: i64, x: i64| x << y),
+            Itof => ops.apply1(|x: i64| f64::from_bits(x as u64)),
+            Itou => ops.apply1(|x: i64| x as u64),
             _ => todo!(),
         }
     }
@@ -305,8 +308,8 @@ mod test {
 
     #[test]
     fn stack_apply1() {
-        fn incr(x: i64) -> Value {
-            Int(x + 1)
+        fn incr(x: i64) -> i64 {
+            x + 1
         }
 
         // insufficient stack
@@ -330,8 +333,8 @@ mod test {
 
     #[test]
     fn stack_apply2() {
-        fn sub(x: i64, y: i64) -> Value {
-            Int(x - y)
+        fn sub(x: i64, y: i64) -> i64 {
+            x - y
         }
 
         // insufficient stack
@@ -370,8 +373,8 @@ mod test {
 
     #[test]
     fn stack_apply3() {
-        fn affine(a: i64, x: i64, b: i64) -> Value {
-            Int(a * x + b)
+        fn affine(a: i64, x: i64, b: i64) -> i64 {
+            a * x + b
         }
 
         // insufficient stack
