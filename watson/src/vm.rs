@@ -263,22 +263,24 @@ impl VM {
 
 #[cfg(test)]
 mod test {
+    use std::fmt;
+
     use super::*;
 
     #[test]
     fn stack_push_and_pop() {
-        test_ops(|token, mut ops| {
-            assert_eq!(ops.pop(), empty_stack(token.clone()));
+        test_ops(|mut ops| {
+            assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
         });
 
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(1));
             ops.push(Int(2));
             ops.push(Int(3));
             assert_eq!(ops.pop(), Ok(Int(3)));
             assert_eq!(ops.pop(), Ok(Int(2)));
             assert_eq!(ops.pop(), Ok(Int(1)));
-            assert_eq!(ops.pop(), empty_stack(token.clone()));
+            assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
         });
     }
 
@@ -289,18 +291,18 @@ mod test {
         }
 
         // insufficient stack
-        test_ops(|token, mut ops| {
-            assert_eq!(ops.apply1(incr), empty_stack(token.clone()));
+        test_ops(|mut ops| {
+            assert_error_kind_is(ops.apply1(incr), ErrorKind::EmptyStack);
         });
 
         // type mismatch
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Nil);
-            assert_eq!(ops.apply1(incr), type_mismatch(token.clone()));
+            assert_error_kind_is(ops.apply1(incr), ErrorKind::TypeMismatch);
         });
 
         // ok
-        test_ops(|_, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(456));
             assert_eq!(ops.apply1(incr), Ok(()));
             assert_eq!(ops.pop(), Ok(Int(457)));
@@ -314,32 +316,32 @@ mod test {
         }
 
         // insufficient stack
-        test_ops(|token, mut ops| {
-            assert_eq!(ops.apply2(sub), empty_stack(token.clone()));
+        test_ops(|mut ops| {
+            assert_error_kind_is(ops.apply2(sub), ErrorKind::EmptyStack);
         });
 
         // insufficient stack (only 1 item)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(5));
-            assert_eq!(ops.apply2(sub), empty_stack(token.clone()));
+            assert_error_kind_is(ops.apply2(sub), ErrorKind::EmptyStack);
         });
 
         // type mismatch (first arg)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(5));
             ops.push(Nil);
-            assert_eq!(ops.apply2(sub), type_mismatch(token.clone()));
+            assert_error_kind_is(ops.apply2(sub), ErrorKind::TypeMismatch);
         });
 
         // type mismatch (second arg)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Nil);
             ops.push(Int(5));
-            assert_eq!(ops.apply2(sub), type_mismatch(token.clone()));
+            assert_error_kind_is(ops.apply2(sub), ErrorKind::TypeMismatch);
         });
 
         // ok
-        test_ops(|_, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(3));
             ops.push(Int(5));
             assert_eq!(ops.apply2(sub), Ok(()));
@@ -354,49 +356,49 @@ mod test {
         }
 
         // insufficient stack
-        test_ops(|token, mut ops| {
-            assert_eq!(ops.apply3(affine), empty_stack(token.clone()));
+        test_ops(|mut ops| {
+            assert_error_kind_is(ops.apply3(affine), ErrorKind::EmptyStack);
         });
 
         // insufficient stack (only 1 item)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(5));
-            assert_eq!(ops.apply3(affine), empty_stack(token.clone()));
+            assert_error_kind_is(ops.apply3(affine), ErrorKind::EmptyStack);
         });
 
         // insufficient stack (only 2 items)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(4));
             ops.push(Int(5));
-            assert_eq!(ops.apply3(affine), empty_stack(token.clone()));
+            assert_error_kind_is(ops.apply3(affine), ErrorKind::EmptyStack);
         });
 
         // type mismatch (first arg)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(3));
             ops.push(Int(4));
             ops.push(Nil);
-            assert_eq!(ops.apply3(affine), type_mismatch(token.clone()));
+            assert_error_kind_is(ops.apply3(affine), ErrorKind::TypeMismatch);
         });
 
         // type mismatch (second arg)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(3));
             ops.push(Nil);
             ops.push(Int(5));
-            assert_eq!(ops.apply3(affine), type_mismatch(token.clone()));
+            assert_error_kind_is(ops.apply3(affine), ErrorKind::TypeMismatch);
         });
 
         // type mismatch (third arg)
-        test_ops(|token, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Nil);
             ops.push(Int(4));
             ops.push(Int(5));
-            assert_eq!(ops.apply3(affine), type_mismatch(token.clone()));
+            assert_error_kind_is(ops.apply3(affine), ErrorKind::TypeMismatch);
         });
 
         // ok
-        test_ops(|_, mut ops| {
+        test_ops(|mut ops| {
             ops.push(Int(3));
             ops.push(Int(4));
             ops.push(Int(5));
@@ -700,7 +702,7 @@ mod test {
         let mut ops = vm.borrow_stack_mut().force_operate();
         assert_eq!(ops.pop(), Ok(Int(123)));
         assert_eq!(ops.pop(), Ok(Int(123)));
-        assert_eq!(ops.pop().unwrap_err().kind, ErrorKind::EmptyStack);
+        assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
 
         Ok(())
     }
@@ -716,7 +718,7 @@ mod test {
 
         let mut ops = vm.borrow_stack_mut().force_operate();
         assert_eq!(ops.pop(), Ok(Int(111)));
-        assert_eq!(ops.pop().unwrap_err().kind, ErrorKind::EmptyStack);
+        assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
 
         Ok(())
     }
@@ -733,7 +735,7 @@ mod test {
         let mut ops = vm.borrow_stack_mut().force_operate();
         assert_eq!(ops.pop(), Ok(Int(111)));
         assert_eq!(ops.pop(), Ok(Uint(222)));
-        assert_eq!(ops.pop().unwrap_err().kind, ErrorKind::EmptyStack);
+        assert_error_kind_is(ops.pop(), ErrorKind::EmptyStack);
 
         Ok(())
     }
@@ -752,11 +754,9 @@ mod test {
         }
     }
 
-    fn test_ops<F: FnOnce(Token, StackOps)>(f: F) {
-        let token = new_meaningless_token();
+    fn test_ops<F: FnOnce(StackOps)>(f: F) {
         let mut stack = Stack::new();
-        let ops = stack.operate_as(token.clone());
-        f(token, ops);
+        f(stack.force_operate());
     }
 
     fn new_meaningless_token() -> Token {
@@ -775,17 +775,7 @@ mod test {
         }
     }
 
-    fn empty_stack<T>(token: Token) -> Result<T> {
-        Err(Error {
-            kind: ErrorKind::EmptyStack,
-            token: token,
-        })
-    }
-
-    fn type_mismatch<T>(token: Token) -> Result<T> {
-        Err(Error {
-            kind: ErrorKind::TypeMismatch,
-            token: token,
-        })
+    fn assert_error_kind_is<T: fmt::Debug>(res: Result<T>, kind: ErrorKind) {
+        assert_eq!(res.unwrap_err().kind, kind);
     }
 }
