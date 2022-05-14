@@ -1,6 +1,8 @@
 use std::path;
 use std::rc::Rc;
 
+use crate::value::Value;
+
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
@@ -46,15 +48,6 @@ pub struct Token {
     pub line: usize,
     pub column: usize,
 }
-
-/// A value that is defined in WATSON specification.
-/// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
-pub enum Value {
-    Int(i64),
-}
-
-pub use Value::*;
 
 // The error type of the WATSON VM.
 #[derive(Eq, PartialEq, Debug)]
@@ -128,6 +121,7 @@ pub struct VM {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::value::Value::*;
 
     #[test]
     fn stack_push_and_pop() {
