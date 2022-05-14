@@ -3,6 +3,7 @@ use std::io;
 use std::path;
 use std::rc::Rc;
 
+use crate::error::*;
 use crate::vm;
 
 // No specific reason to use this value.
@@ -93,16 +94,11 @@ pub struct Lexer<R: io::Read> {
 
     mode: Mode,
 
+    last_read_ascii: u8,
     file_path: Option<Rc<path::Path>>,
     line: usize,
     column: usize,
 }
-
-/// The error type for `Lexer`.
-pub type Error = io::Error;
-
-/// The specialized `Result` type for `Lexer`.
-pub type Result<T> = io::Result<T>;
 
 /// A builder for `Lexer`.
 pub struct Builder {
@@ -139,8 +135,8 @@ impl Builder {
     }
 
     /// Opens a file and builds a `Lexer` that reads from the given file.
-    pub fn open(mut self, path: path::PathBuf) -> io::Result<Lexer<fs::File>> {
-        let file = fs::File::open(&path)?;
+    pub fn open(mut self, path: path::PathBuf) -> Result<Lexer<fs::File>> {
+        let file = fs::File::open(&path).into_vm_result(|| Location::unknown())?;
         let path_to_display = self
             .file_path
             .take()
@@ -161,6 +157,7 @@ impl Builder {
             filled: 0,
             current: 0,
             mode: mode,
+            last_read_ascii: 0,
             file_path: path,
             line: 1,
             column: 0,
@@ -201,6 +198,7 @@ impl<R: io::Read> Lexer<R> {
         let cur = self.current;
         self.current += 1;
         let byte = self.buf[cur];
+        self.last_read_ascii = byte;
         if byte == b'\n' {
             self.line += 1;
             self.column = 0;
@@ -211,8 +209,20 @@ impl<R: io::Read> Lexer<R> {
     }
 
     fn fill_buffer(&mut self) -> Result<()> {
-        self.filled = self.reader.read(&mut self.buf)?;
+        self.filled = self
+            .reader
+            .read(&mut self.buf)
+            .into_vm_result(|| self.current_location())?;
         Ok(())
+    }
+
+    fn current_location(&self) -> Location {
+        Location {
+            ascii: self.last_read_ascii,
+            path: self.file_path.as_ref().map(|rc| Rc::clone(rc)),
+            line: self.line,
+            column: self.column,
+        }
     }
 
     fn advance_state(&mut self, insn: vm::Insn) {

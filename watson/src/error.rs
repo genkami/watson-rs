@@ -1,15 +1,20 @@
+use std::error;
 use std::fmt;
+use std::io;
 use std::path;
 use std::rc::Rc;
 
 /// The error type of the WATSON VM.
-#[derive(Eq, PartialEq, Clone, Debug)]
+#[derive(Debug)]
 pub struct Error {
     /// Represents details of the error.
     pub kind: ErrorKind,
 
     /// The location where the error happened.
     pub location: Location,
+
+    /// The internal error that causes this error.
+    pub source: Option<Box<dyn error::Error>>,
 }
 
 /// Location where an error happened.
@@ -26,6 +31,17 @@ pub struct Location {
 
     /// Column number.
     pub column: usize,
+}
+
+impl Location {
+    pub fn unknown() -> Self {
+        Location {
+            ascii: 0,
+            path: None,
+            line: 0,
+            column: 0,
+        }
+    }
 }
 
 /// Details of the `Error`.
@@ -74,5 +90,28 @@ impl fmt::Display for ErrorKind {
             ErrorKind::IOError => "I/O error",
         };
         write!(f, "{}", msg)
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        self.source.as_deref()
+    }
+}
+
+pub trait IntoVMResult {
+    type Ok;
+    fn into_vm_result<F: FnOnce() -> Location>(self, f: F) -> Result<Self::Ok>;
+}
+
+impl<T> IntoVMResult for io::Result<T> {
+    type Ok = T;
+
+    fn into_vm_result<F: FnOnce() -> Location>(self, f: F) -> Result<T> {
+        self.map_err(|ioerr| Error {
+            kind: ErrorKind::IOError,
+            location: f(),
+            source: Some(Box::new(ioerr)),
+        })
     }
 }

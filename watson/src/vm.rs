@@ -1,6 +1,7 @@
 use std::path;
 use std::rc::Rc;
 
+use crate::error;
 use crate::value::*;
 
 /// An instruction of the WATSON Virtual Machine.
@@ -47,6 +48,17 @@ pub struct Token {
     pub file_path: Option<Rc<path::Path>>,
     pub line: usize,
     pub column: usize,
+}
+
+impl Token {
+    pub fn location(&self) -> error::Location {
+        error::Location {
+            ascii: self.ascii,
+            path: self.file_path.as_ref().map(|rc| Rc::clone(rc)),
+            line: self.line,
+            column: self.column,
+        }
+    }
 }
 
 // The error type of the WATSON VM.
