@@ -1,6 +1,7 @@
 use std::fs;
 use std::io;
 use std::path;
+use std::rc::Rc;
 
 use crate::vm;
 
@@ -87,7 +88,7 @@ pub struct Token {
     pub ascii: u8,
 
     /// Location of the instrution.
-    pub file_path: Option<path::PathBuf>,
+    pub file_path: Option<Rc<path::Path>>,
     pub line: usize,
     pub column: usize,
 }
@@ -101,8 +102,7 @@ pub struct Lexer<R: io::Read> {
 
     mode: Mode,
 
-    // TODO: this should be Option<Rc<Path>> or something
-    file_path: Option<path::PathBuf>,
+    file_path: Option<Rc<path::Path>>,
     line: usize,
     column: usize,
 }
@@ -116,7 +116,7 @@ pub type Result<T> = io::Result<T>;
 /// A builder for `Lexer`.
 pub struct Builder {
     initial_mode: Mode,
-    file_path: Option<path::PathBuf>,
+    file_path: Option<Rc<path::Path>>,
 }
 
 impl Builder {
@@ -135,8 +135,8 @@ impl Builder {
     }
 
     /// Sets a file path to display.
-    pub fn file_path(mut self, path: path::PathBuf) -> Self {
-        self.file_path = Some(path);
+    pub fn file_path(mut self, path: &path::Path) -> Self {
+        self.file_path = Some(path.to_path_buf().into());
         self
     }
 
@@ -150,10 +150,10 @@ impl Builder {
     /// Opens a file and builds a `Lexer` that reads from the given file.
     pub fn open(mut self, path: path::PathBuf) -> io::Result<Lexer<fs::File>> {
         let file = fs::File::open(&path)?;
-        let path_to_display = match self.file_path.take() {
-            None => Some(path),
-            Some(p) => Some(p),
-        };
+        let path_to_display = self
+            .file_path
+            .take()
+            .or_else(|| Some(path.to_path_buf().into()));
         let mode = self.initial_mode;
         Ok(self.build_internal(file, path_to_display, mode))
     }
@@ -161,7 +161,7 @@ impl Builder {
     fn build_internal<R: io::Read>(
         self,
         reader: R,
-        path: Option<path::PathBuf>,
+        path: Option<Rc<path::Path>>,
         mode: Mode,
     ) -> Lexer<R> {
         Lexer {
@@ -355,15 +355,13 @@ mod test {
     fn builder_file_path_can_be_overridden() {
         let asciis = b"Bubba".to_vec();
         let path = path::Path::new("test.watson");
-        let mut lexer = Builder::new()
-            .file_path(path.to_path_buf())
-            .build(&asciis[..]);
+        let mut lexer = Builder::new().file_path(path).build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
-                file_path: Some(path.to_path_buf()),
+                file_path: Some(path.to_path_buf().into()),
                 line: 1,
                 column: 1,
             },
@@ -385,7 +383,7 @@ mod test {
             Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
-                file_path: Some(path.to_path_buf()),
+                file_path: Some(path.to_path_buf().into()),
                 line: 1,
                 column: 1,
             },
@@ -404,14 +402,14 @@ mod test {
         let path_to_display = path::Path::new("anothername.watson");
 
         let mut lexer = Builder::new()
-            .file_path(path_to_display.to_path_buf())
+            .file_path(path_to_display)
             .open(path.to_path_buf())?;
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
-                file_path: Some(path_to_display.to_path_buf()),
+                file_path: Some(path_to_display.to_path_buf().into()),
                 line: 1,
                 column: 1,
             },
