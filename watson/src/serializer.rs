@@ -43,37 +43,55 @@ impl State {
     }
 
     /// Transitions the state and outputs an instruction.
-    fn transition(self) -> (State, Option<Insn>) {
+    fn transition(&mut self) -> Option<Insn> {
         use State::*;
 
-        match self {
-            IntInitial(n) => (IntWaitingNextBit(n, 0), Some(Inew)),
+        match self.take() {
+            IntInitial(n) => {
+                *self = IntWaitingNextBit(n, 0);
+                Some(Inew)
+            }
             IntWaitingNextBit(n, shamt) => {
                 if n == 0 {
-                    (Done, None)
+                    *self = Done;
+                    None
                 } else if n % 2 == 0 {
-                    (IntWaitingNextBit(n >> 1, shamt + 1), None)
+                    *self = IntWaitingNextBit(n >> 1, shamt + 1);
+                    None
                 } else {
-                    (IntNextBitAllocated(n, shamt), Some(Inew))
+                    *self = IntNextBitAllocated(n, shamt);
+                    Some(Inew)
                 }
             }
-            IntNextBitAllocated(n, shamt) => (IntNextBitShifting(n, shamt, shamt), Some(Iinc)),
+            IntNextBitAllocated(n, shamt) => {
+                *self = IntNextBitShifting(n, shamt, shamt);
+                Some(Iinc)
+            }
             IntNextBitShifting(n, shamt, i) => {
                 if i == 0 {
-                    (IntWaitingNextBit(n >> 1, shamt + 1), Some(Iadd))
+                    *self = IntWaitingNextBit(n >> 1, shamt + 1);
+                    Some(Iadd)
                 } else {
-                    (IntNextBitShifting(n, shamt, i - 1), Some(Ishl))
+                    *self = IntNextBitShifting(n, shamt, i - 1);
+                    Some(Ishl)
                 }
             }
-            UintInitial(n) => (UintPushingInt(Box::new(IntInitial(n))), None),
-            UintPushingInt(boxed) => match *boxed {
-                Done => (Done, Some(Itou)),
-                s => {
-                    let (next_s, insn) = s.transition();
-                    (UintPushingInt(Box::new(next_s)), insn)
+            UintInitial(n) => {
+                *self = UintPushingInt(Box::new(IntInitial(n)));
+                None
+            }
+            UintPushingInt(mut boxed_state) => match boxed_state.as_ref() {
+                &Done => {
+                    *self = Done;
+                    Some(Itou)
+                }
+                _ => {
+                    let insn = boxed_state.transition();
+                    *self = UintPushingInt(boxed_state);
+                    insn
                 }
             },
-            Done => (Done, None),
+            Done => None,
         }
     }
 
@@ -97,17 +115,17 @@ impl Serializer {
 
     /// Returns the next `Insn` if exists.
     pub fn next_insn(&mut self) -> Option<Insn> {
-        let mut prev = self.state.take();
         loop {
-            match prev.transition() {
-                (State::Done, insn) => {
-                    return insn;
-                }
-                (s, None) => {
-                    prev = s;
-                }
-                (s, Some(insn)) => {
-                    self.state = s;
+            match self.state.transition() {
+                None => match self.state {
+                    State::Done => {
+                        return None;
+                    }
+                    _ => {
+                        continue;
+                    }
+                },
+                Some(insn) => {
                     return Some(insn);
                 }
             }
