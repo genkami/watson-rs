@@ -13,19 +13,51 @@ pub enum Value {
 
 pub use Value::*;
 
-/// A type that can be converted directly from `Value`.
-pub trait FromValue: Sized {
+/// A type that can be converted directly from and to `Value`.
+pub trait IsValue: Sized {
     /// Converts a `Value` into its expected type.
-    /// TODO: rename this to `from_value`.
-    fn to_inner(v: Value) -> Option<Self>;
+    fn from_value(v: Value) -> Option<Self>;
+
+    /// Converts self into a `Value`.
+    fn to_value(self) -> Value;
 }
 
-impl FromValue for i64 {
-    fn to_inner(v: Value) -> Option<i64> {
+impl IsValue for i64 {
+    fn from_value(v: Value) -> Option<i64> {
         match v {
             Int(i) => Some(i),
             _ => None,
         }
+    }
+
+    fn to_value(self) -> Value {
+        Int(self)
+    }
+}
+
+impl IsValue for u64 {
+    fn from_value(v: Value) -> Option<u64> {
+        match v {
+            Uint(u) => Some(u),
+            _ => None,
+        }
+    }
+
+    fn to_value(self) -> Value {
+        Uint(self)
+    }
+}
+
+impl IsValue for f64 {
+    fn from_value(v: Value) -> Option<f64> {
+        match v {
+            Float(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    fn to_value(self) -> Value {
+        Float(self)
     }
 }
 
@@ -153,7 +185,7 @@ impl<'a> StackOps<'a> {
     /// Pops a value from the stack, applies f to it, then pushes the result.
     pub fn apply1<C1, F>(&mut self, f: F) -> Result<()>
     where
-        C1: FromValue,
+        C1: IsValue,
         F: FnOnce(C1) -> Value,
     {
         let v1 = self.pop()?;
@@ -166,8 +198,8 @@ impl<'a> StackOps<'a> {
     /// The leftmost argument corresponds to the top of the stack.
     pub fn apply2<C1, C2, F>(&mut self, f: F) -> Result<()>
     where
-        C1: FromValue,
-        C2: FromValue,
+        C1: IsValue,
+        C2: IsValue,
         F: FnOnce(C1, C2) -> Value,
     {
         let v1 = self.pop()?;
@@ -181,9 +213,9 @@ impl<'a> StackOps<'a> {
     /// The leftmost argument corresponds to the top of the stack.
     pub fn apply3<C1, C2, C3, F>(&mut self, f: F) -> Result<()>
     where
-        C1: FromValue,
-        C2: FromValue,
-        C3: FromValue,
+        C1: IsValue,
+        C2: IsValue,
+        C3: IsValue,
         F: FnOnce(C1, C2, C3) -> Value,
     {
         let v1 = self.pop()?;
@@ -194,8 +226,8 @@ impl<'a> StackOps<'a> {
         Ok(())
     }
 
-    fn claim<C: FromValue>(&self, v: Value) -> Result<C> {
-        match C::to_inner(v) {
+    fn claim<C: IsValue>(&self, v: Value) -> Result<C> {
+        match C::from_value(v) {
             Some(x) => Ok(x),
             None => Err(Error {
                 kind: ErrorKind::TypeMismatch,
