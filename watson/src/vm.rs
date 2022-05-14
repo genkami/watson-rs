@@ -219,12 +219,17 @@ impl VM {
     /// Executes a single instruction.
     pub fn execute(&mut self, t: Token) -> Result<()> {
         let mut ops = self.stack.operate_as(t.clone());
+        // See https://github.com/genkami/watson/blob/main/doc/spec.md#instructions.
         match t.insn {
             Inew => {
                 ops.push(Int(0));
                 Ok(())
             }
             Iinc => ops.apply1(|x: i64| Int(x + 1)),
+            Ishl => ops.apply1(|x: i64| Int(x << 1)),
+            Iadd => ops.apply2(|y: i64, x: i64| Int(x + y)),
+            Ineg => ops.apply1(|x: i64| Int(-x)),
+            Isht => ops.apply2(|y: i64, x: i64| Int(x << y)),
             _ => todo!(),
         }
     }
@@ -385,7 +390,7 @@ mod test {
     }
 
     #[test]
-    fn test_inew() -> Result<()> {
+    fn vm_execute_inew() -> Result<()> {
         let mut vm = VM::new();
 
         assert_eq!(vm.peek_top(), None);
@@ -396,15 +401,63 @@ mod test {
     }
 
     #[test]
-    fn test_iinc() -> Result<()> {
+    fn vm_execute_iinc() -> Result<()> {
         let mut vm = VM::new();
-        vm.borrow_stack_mut()
-            .operate_as(new_meaningless_token())
-            .push(Int(123));
+        let mut ops = vm.borrow_stack_mut().force_operate();
 
-        assert_eq!(vm.peek_top(), Some(&Int(123)));
+        ops.push(Int(123));
         vm.execute(new_token(Iinc))?;
         assert_eq!(vm.peek_top(), Some(&Int(124)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_ishl() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(3));
+        vm.execute(new_token(Ishl))?;
+        assert_eq!(vm.peek_top(), Some(&Int(6)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_iadd() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(3));
+        ops.push(Int(4));
+        vm.execute(new_token(Iadd))?;
+        assert_eq!(vm.peek_top(), Some(&Int(7)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_ineg() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(3));
+        vm.execute(new_token(Ineg))?;
+        assert_eq!(vm.peek_top(), Some(&Int(-3)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn vm_execute_isht() -> Result<()> {
+        let mut vm = VM::new();
+        let mut ops = vm.borrow_stack_mut().force_operate();
+
+        ops.push(Int(3));
+        ops.push(Int(2));
+        vm.execute(new_token(Isht))?;
+        assert_eq!(vm.peek_top(), Some(&Int(12)));
 
         Ok(())
     }
@@ -412,6 +465,16 @@ mod test {
     /*
      * Helper functions
      */
+
+    trait StackExt {
+        fn force_operate(&mut self) -> StackOps;
+    }
+
+    impl StackExt for Stack {
+        fn force_operate(&mut self) -> StackOps {
+            self.operate_as(new_meaningless_token())
+        }
+    }
 
     fn test_ops<F: FnOnce(Token, StackOps)>(f: F) {
         let token = new_meaningless_token();
