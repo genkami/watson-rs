@@ -28,6 +28,19 @@ enum State {
     UintInitial(u64),
     UintPushingInt(Box<State>),
 
+    // (*) FloatInitial(f)
+    //         |
+    //      (f is NaN/Fnan)---> Done
+    //         |
+    //      (f is positive infinite/Finf)---> Done
+    //         |
+    //      (f is negative infinite/Finf)---> FloatWaitingNegation ---(*/Fneg)---> Done
+    //         |
+    //      (f is finite/None)---> FloatPushingInt(IntInitial(f as bits)) ---(...)---> FloatPushingInt(Done) ---(*/Itof)---> Done
+    FloatInitial(f64),
+    FloatWaitingNegation,
+    FloatPushingInt(Box<State>),
+
     // Done ---(*/None)---> Done
     Done,
 }
@@ -38,6 +51,7 @@ impl State {
         match v {
             Int(i) => State::IntInitial(i as u64),
             Uint(u) => State::UintInitial(u),
+            Float(f) => State::FloatInitial(f),
             _ => todo!(),
         }
     }
@@ -88,6 +102,38 @@ impl State {
                 _ => {
                     let insn = boxed_state.transition();
                     *self = UintPushingInt(boxed_state);
+                    insn
+                }
+            },
+            FloatInitial(f) => {
+                if f.is_nan() {
+                    *self = Done;
+                    Some(Fnan)
+                } else if f.is_infinite() {
+                    if f.is_sign_negative() {
+                        *self = FloatWaitingNegation;
+                        Some(Finf)
+                    } else {
+                        *self = Done;
+                        Some(Finf)
+                    }
+                } else {
+                    *self = FloatPushingInt(Box::new(IntInitial(f.to_bits())));
+                    None
+                }
+            }
+            FloatWaitingNegation => {
+                *self = Done;
+                Some(Fneg)
+            }
+            FloatPushingInt(mut boxed_state) => match boxed_state.as_ref() {
+                &Done => {
+                    *self = Done;
+                    Some(Itof)
+                }
+                _ => {
+                    let insn = boxed_state.transition();
+                    *self = FloatPushingInt(boxed_state);
                     insn
                 }
             },
@@ -183,6 +229,18 @@ mod test {
         assert_identical(Uint(1));
         assert_identical(Uint(5));
         assert_identical(Uint(0xffff_ffff_ffff_ffff));
+    }
+
+    #[test]
+    fn serializer_float() {
+        assert_eq!(to_insn_vec(Float(f64::NAN)), vec![Fnan]);
+        assert_eq!(to_insn_vec(Float(f64::INFINITY)), vec![Finf]);
+        assert_eq!(to_insn_vec(Float(f64::NEG_INFINITY)), vec![Finf, Fneg]);
+
+        assert_identical(Float(0.0));
+        assert_identical(Float(1.0));
+        assert_identical(Float(123.45e-67));
+        assert_identical(Float(8.9102e34));
     }
 
     /*
