@@ -99,15 +99,15 @@ impl std::error::Error for Error {
     }
 }
 
-pub trait IntoVMResult {
+pub trait IntoWATSONResult {
     type Ok;
-    fn into_vm_result<F: FnOnce() -> Location>(self, f: F) -> Result<Self::Ok>;
+    fn into_watson_result<F: FnOnce() -> Location>(self, f: F) -> Result<Self::Ok>;
 }
 
-impl<T> IntoVMResult for io::Result<T> {
+impl<T> IntoWATSONResult for io::Result<T> {
     type Ok = T;
 
-    fn into_vm_result<F: FnOnce() -> Location>(self, f: F) -> Result<T> {
+    fn into_watson_result<F: FnOnce() -> Location>(self, f: F) -> Result<T> {
         self.map_err(|ioerr| Error {
             kind: ErrorKind::IOError,
             location: f(),

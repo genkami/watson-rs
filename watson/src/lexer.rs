@@ -136,7 +136,7 @@ impl Builder {
 
     /// Opens a file and builds a `Lexer` that reads from the given file.
     pub fn open(mut self, path: path::PathBuf) -> Result<Lexer<fs::File>> {
-        let file = fs::File::open(&path).into_vm_result(|| Location::unknown())?;
+        let file = fs::File::open(&path).into_watson_result(|| Location::unknown())?;
         let path_to_display = self
             .file_path
             .take()
@@ -214,7 +214,7 @@ impl<R: io::Read> Lexer<R> {
         self.filled = self
             .reader
             .read(&mut self.buf)
-            .into_vm_result(|| self.current_location())?;
+            .into_watson_result(|| self.current_location())?;
         Ok(())
     }
 
@@ -409,10 +409,10 @@ mod test {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
-        let mut tempfile = NamedTempFile::new().into_vm_result(|| Location::unknown())?;
+        let mut tempfile = NamedTempFile::new().into_watson_result(|| Location::unknown())?;
         tempfile
             .write_all(b"Bubba")
-            .into_vm_result(|| Location::unknown())?;
+            .into_watson_result(|| Location::unknown())?;
         let path = tempfile.into_temp_path();
 
         let mut lexer = Builder::new().open(path.to_path_buf())?;
@@ -436,10 +436,10 @@ mod test {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
-        let mut tempfile = NamedTempFile::new().into_vm_result(|| Location::unknown())?;
+        let mut tempfile = NamedTempFile::new().into_watson_result(|| Location::unknown())?;
         tempfile
             .write_all(b"Bubba")
-            .into_vm_result(|| Location::unknown())?;
+            .into_watson_result(|| Location::unknown())?;
         let path = tempfile.into_temp_path();
         let path_to_display = path::Path::new("anothername.watson");
 
