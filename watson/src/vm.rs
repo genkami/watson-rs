@@ -1,46 +1,7 @@
 use crate::error::*;
-use crate::value::*;
 
-/// An instruction of the WATSON Virtual Machine.
-/// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
-pub enum Insn {
-    Inew,
-    Iinc,
-    Ishl,
-    Iadd,
-    Ineg,
-    Isht,
-    Itof,
-    Itou,
-    Finf,
-    Fnan,
-    Fneg,
-    Snew,
-    Sadd,
-    Onew,
-    Oadd,
-    Anew,
-    Aadd,
-    Bnew,
-    Bneg,
-    Nnew,
-    Gdup,
-    Gpop,
-    Gswp,
-}
-
-pub use Insn::*;
-
-/// A token of the WATSON language.
-#[derive(Eq, PartialEq, Clone, Debug)]
-pub struct Token {
-    /// A VM instruction that the token represents.
-    pub insn: Insn,
-
-    /// Location of the instruction.
-    pub location: Location,
-}
+use crate::language::{Insn, IsValue, Map, Token, Value};
+use Insn::*;
 
 /// A stack of the WATSON VM.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -245,6 +206,8 @@ mod test {
     use std::fmt;
 
     use super::*;
+    use crate::language::Location;
+    use Value::*;
 
     #[test]
     fn stack_push_and_pop() -> Result<()> {

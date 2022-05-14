@@ -1,8 +1,8 @@
 use std::error;
 use std::fmt;
 use std::io;
-use std::path;
-use std::rc::Rc;
+
+use crate::language::Location;
 
 /// The error type of the WATSON VM.
 #[derive(Debug)]
@@ -15,33 +15,6 @@ pub struct Error {
 
     /// The internal error that causes this error.
     pub source: Option<Box<dyn error::Error>>,
-}
-
-/// Location where an error happened.
-#[derive(Eq, PartialEq, Clone, Debug)]
-pub struct Location {
-    /// A character that the WATSON VM read.
-    pub ascii: u8,
-
-    /// Optional file path.
-    pub path: Option<Rc<path::Path>>,
-
-    /// Line number.
-    pub line: usize,
-
-    /// Column number.
-    pub column: usize,
-}
-
-impl Location {
-    pub fn unknown() -> Self {
-        Location {
-            ascii: 0,
-            path: None,
-            line: 0,
-            column: 0,
-        }
-    }
 }
 
 /// Details of the `Error`.

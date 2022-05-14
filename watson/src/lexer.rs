@@ -4,86 +4,10 @@ use std::path;
 use std::rc::Rc;
 
 use crate::error::*;
-use crate::vm;
+use crate::language::{Insn, Location, Mode, Token};
 
 // No specific reason to use this value.
 const BUF_SIZE: usize = 256;
-
-mod conv {
-    use once_cell::sync::Lazy;
-    use std::collections::HashMap;
-
-    use crate::vm;
-    use vm::Insn::*;
-
-    pub const ALL_INSNS: [vm::Insn; 23] = [
-        Inew, Iinc, Ishl, Iadd, Ineg, Isht, Itof, Itou, Finf, Fnan, Fneg, Snew, Sadd, Onew, Oadd,
-        Anew, Aadd, Bnew, Bneg, Nnew, Gdup, Gpop, Gswp,
-    ];
-
-    // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
-    pub static ASCII_TO_INSN_TABLE_A: Lazy<HashMap<u8, vm::Insn>> =
-        Lazy::new(|| build_ascii_to_insn_map(b"BubaAei'qtp?!~M@szo.E#%"));
-
-    pub static ASCII_TO_INSN_TABLE_S: Lazy<HashMap<u8, vm::Insn>> =
-        Lazy::new(|| build_ascii_to_insn_map(b"ShakrAzimbu$-+gv?^!y/e:"));
-
-    pub static INSN_TO_ASCII_TABLE_A: Lazy<HashMap<vm::Insn, u8>> =
-        Lazy::new(|| reverse(&*ASCII_TO_INSN_TABLE_A));
-
-    pub static INSN_TO_ASCII_TABLE_S: Lazy<HashMap<vm::Insn, u8>> =
-        Lazy::new(|| reverse(&*ASCII_TO_INSN_TABLE_S));
-
-    fn build_ascii_to_insn_map(asciis: &[u8]) -> HashMap<u8, vm::Insn> {
-        asciis
-            .iter()
-            .zip(&ALL_INSNS)
-            .map(|(c, i)| (*c, *i))
-            .collect()
-    }
-
-    fn reverse(orig: &HashMap<u8, vm::Insn>) -> HashMap<vm::Insn, u8> {
-        orig.iter().map(|(c, i)| (*i, *c)).collect()
-    }
-}
-
-/// A "mode" of the WATSON lexer.
-/// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Debug)]
-pub enum Mode {
-    /// The A mode.
-    A,
-    /// The S mode.
-    S,
-}
-
-impl Mode {
-    /// Returns the opposite state.
-    pub fn flip(self) -> Mode {
-        match self {
-            Mode::A => Mode::S,
-            Mode::S => Mode::A,
-        }
-    }
-
-    // Converts an ASCII character to its corresponding `vm::Insn` with respect to the current `Mode`.
-    pub fn ascii_to_insn(self, ascii: u8) -> Option<vm::Insn> {
-        let table = match self {
-            Mode::A => &*conv::ASCII_TO_INSN_TABLE_A,
-            Mode::S => &*conv::ASCII_TO_INSN_TABLE_S,
-        };
-        table.get(&ascii).map(|i| *i)
-    }
-
-    // Converts a `vm::Insn` to its corresponding ASCII character with respect to the current `Mode`.
-    pub fn insn_to_ascii(self, insn: vm::Insn) -> u8 {
-        let table = match self {
-            Mode::A => &*conv::INSN_TO_ASCII_TABLE_A,
-            Mode::S => &*conv::INSN_TO_ASCII_TABLE_S,
-        };
-        table.get(&insn).map(|c| *c).unwrap()
-    }
-}
 
 /// A lexer of the WATSON language.
 pub struct Lexer<R: io::Read> {
@@ -167,8 +91,8 @@ impl Builder {
 
 impl<R: io::Read> Lexer<R> {
     /// Returns a next token if exists.
-    pub fn next_token(&mut self) -> Result<vm::Token> {
-        let token: vm::Token;
+    pub fn next_token(&mut self) -> Result<Token> {
+        let token: Token;
         loop {
             let byte = self.next_byte()?;
             match self.mode.ascii_to_insn(byte) {
@@ -176,7 +100,7 @@ impl<R: io::Read> Lexer<R> {
                     continue;
                 }
                 Some(insn) => {
-                    token = vm::Token {
+                    token = Token {
                         insn: insn,
                         location: Location {
                             ascii: byte,
@@ -227,10 +151,10 @@ impl<R: io::Read> Lexer<R> {
         }
     }
 
-    fn advance_state(&mut self, insn: vm::Insn) {
+    fn advance_state(&mut self, insn: Insn) {
         match insn {
             // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
-            vm::Insn::Snew => {
+            Insn::Snew => {
                 self.mode = self.mode.flip();
             }
             _ => {
@@ -244,101 +168,14 @@ impl<R: io::Read> Lexer<R> {
 mod test {
     use super::*;
 
-    // 0x21 to 0x7E
-    const ASCII_CHARS: std::ops::RangeInclusive<u8> = b'!'..=b'~';
-
-    #[test]
-    fn mode_ascii_to_insn_is_surjective() {
-        fn assert_surjective(mode: Mode) {
-            use std::collections::HashSet;
-
-            let mut insns = conv::ALL_INSNS.iter().map(|i| *i).collect::<HashSet<_>>();
-            for c in ASCII_CHARS {
-                mode.ascii_to_insn(c).map(|insn| insns.remove(&insn));
-            }
-            for insn in insns {
-                panic!(
-                    "mode={:?}: instruction {:?} does not have matching ASCII characters",
-                    mode, insn
-                );
-            }
-        }
-
-        assert_surjective(Mode::A);
-        assert_surjective(Mode::S);
-    }
-
-    #[test]
-    fn mode_ascii_to_insn_is_injective() {
-        fn assert_injective(mode: Mode) {
-            use std::collections::HashMap;
-
-            let mut reversed = HashMap::new();
-            for c in ASCII_CHARS {
-                mode.ascii_to_insn(c).map(|insn| match reversed.get(&insn) {
-                    None => {
-                        reversed.insert(insn, c);
-                    }
-                    Some(d) => {
-                        panic!(
-                            "mode={:?}: both {:?} and {:?} are converted into {:?}",
-                            mode, c, d, insn
-                        );
-                    }
-                });
-            }
-        }
-
-        assert_injective(Mode::A);
-        assert_injective(Mode::S);
-    }
-
-    #[test]
-    fn mode_insn_to_ascii_never_panics() {
-        fn assert_never_panics(mode: Mode) {
-            for i in conv::ALL_INSNS {
-                mode.insn_to_ascii(i);
-            }
-        }
-
-        assert_never_panics(Mode::A);
-        assert_never_panics(Mode::S);
-    }
-
-    #[test]
-    fn mode_insn_to_ascii_is_injective() {
-        fn assert_injective(mode: Mode) {
-            use std::collections::HashMap;
-
-            let mut reversed = HashMap::new();
-            for i in conv::ALL_INSNS {
-                let c = mode.insn_to_ascii(i);
-                match reversed.get(&c) {
-                    None => {
-                        reversed.insert(c, i);
-                    }
-                    Some(j) => {
-                        panic!(
-                            "mode={:?}: both {:?} and {:?} are converted into {:?}",
-                            mode, i, j, c
-                        );
-                    }
-                }
-            }
-        }
-
-        assert_injective(Mode::A);
-        assert_injective(Mode::S);
-    }
-
     #[test]
     fn builder_initial_mode_defaults_to_a() {
         let asciis = b"Bubba".to_vec();
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: None,
@@ -355,8 +192,8 @@ mod test {
         let mut lexer = Builder::new().initial_mode(Mode::S).build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'S',
                     path: None,
@@ -373,8 +210,8 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: None,
@@ -392,8 +229,8 @@ mod test {
         let mut lexer = Builder::new().file_path(path).build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: Some(path.to_path_buf().into()),
@@ -418,8 +255,8 @@ mod test {
         let mut lexer = Builder::new().open(path.to_path_buf())?;
         assert_eq!(
             lexer.next_token()?,
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: Some(path.to_path_buf().into()),
@@ -448,8 +285,8 @@ mod test {
             .open(path.to_path_buf())?;
         assert_eq!(
             lexer.next_token()?,
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: Some(path_to_display.to_path_buf().into()),
@@ -467,8 +304,8 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: None,
@@ -479,8 +316,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Iinc,
+            Token {
+                insn: Insn::Iinc,
                 location: Location {
                     ascii: b'u',
                     path: None,
@@ -491,8 +328,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Ishl,
+            Token {
+                insn: Insn::Ishl,
                 location: Location {
                     ascii: b'b',
                     path: None,
@@ -505,8 +342,8 @@ mod test {
         // lexer hits \n here
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Ishl,
+            Token {
+                insn: Insn::Ishl,
                 location: Location {
                     ascii: b'b',
                     path: None,
@@ -517,8 +354,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Iadd,
+            Token {
+                insn: Insn::Iadd,
                 location: Location {
                     ascii: b'a',
                     path: None,
@@ -535,8 +372,8 @@ mod test {
         let mut lexer = Builder::new().build(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: None,
@@ -547,8 +384,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Iinc,
+            Token {
+                insn: Insn::Iinc,
                 location: Location {
                     ascii: b'u',
                     path: None,
@@ -559,8 +396,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Snew,
+            Token {
+                insn: Insn::Snew,
                 location: Location {
                     ascii: b'?',
                     path: None,
@@ -573,8 +410,8 @@ mod test {
         // Lexer hits `Onew`, so it changes its mode to `S`.
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'S',
                     path: None,
@@ -585,8 +422,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Iinc,
+            Token {
+                insn: Insn::Iinc,
                 location: Location {
                     ascii: b'h',
                     path: None,
@@ -597,8 +434,8 @@ mod test {
         );
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Snew,
+            Token {
+                insn: Insn::Snew,
                 location: Location {
                     ascii: b'$',
                     path: None,
@@ -610,8 +447,8 @@ mod test {
         // Lexer hits `Onew`, so it changes its mode to `A`.
         assert_eq!(
             lexer.next_token().unwrap(),
-            vm::Token {
-                insn: vm::Insn::Inew,
+            Token {
+                insn: Insn::Inew,
                 location: Location {
                     ascii: b'B',
                     path: None,

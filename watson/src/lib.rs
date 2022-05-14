@@ -1,4 +1,4 @@
 pub mod error;
+pub mod language;
 pub mod lexer;
-pub mod value;
 pub mod vm;
