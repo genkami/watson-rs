@@ -23,6 +23,12 @@ enum State {
     IntWaitingNextBit(u64, usize),
     IntNextBitAllocated(u64, usize),
     IntNextBitShifting(u64, usize, usize),
+
+    // (*) UintInitial(n) ---(*/None)---> UintPushingInt(IntInitial(n)) ---(...)---> UintPushingInt(Done) ---(*/Itou)---> Done
+    UintInitial(u64),
+    UintPushingInt(Box<State>),
+
+    // Done ---(*/None)---> Done
     Done,
 }
 
@@ -31,6 +37,7 @@ impl State {
     fn new(v: Value) -> Self {
         match v {
             Int(i) => State::IntInitial(i as u64),
+            Uint(u) => State::UintInitial(u),
             _ => todo!(),
         }
     }
@@ -58,6 +65,14 @@ impl State {
                     (IntNextBitShifting(n, shamt, i - 1), Some(Ishl))
                 }
             }
+            UintInitial(n) => (UintPushingInt(Box::new(IntInitial(n))), None),
+            UintPushingInt(boxed) => match *boxed {
+                Done => (Done, Some(Itou)),
+                s => {
+                    let (next_s, insn) = s.transition();
+                    (UintPushingInt(Box::new(next_s)), insn)
+                }
+            },
             Done => (Done, None),
         }
     }
@@ -122,7 +137,7 @@ mod test {
     use crate::vm;
 
     #[test]
-    fn test_serializer_int() {
+    fn serializer_int() {
         assert_eq!(to_insn_vec(Int(0)), vec![Inew]);
         assert_eq!(to_insn_vec(Int(1)), vec![Inew, Inew, Iinc, Iadd]);
         assert_eq!(to_insn_vec(Int(2)), vec![Inew, Inew, Iinc, Ishl, Iadd]);
@@ -143,6 +158,18 @@ mod test {
         assert_identical(Int(1234567890));
         assert_identical(Int(-1234567890));
     }
+
+    #[test]
+    fn serializer_uint() {
+        assert_identical(Uint(0));
+        assert_identical(Uint(1));
+        assert_identical(Uint(5));
+        assert_identical(Uint(0xffff_ffff_ffff_ffff));
+    }
+
+    /*
+     * Helper functions
+     */
 
     fn to_insn_vec(value: Value) -> Vec<Insn> {
         Serializer::new(value).into_iter().collect::<Vec<Insn>>()
