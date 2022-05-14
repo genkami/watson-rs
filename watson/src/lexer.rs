@@ -1,38 +1,43 @@
-use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path;
 
-use once_cell::sync::Lazy;
-
 use crate::vm;
-use crate::vm::Insn::*;
 
 // No specific reason to use this value.
 const BUF_SIZE: usize = 256;
 
-static ALL_INSNS: [vm::Insn; 23] = [
-    Inew, Iinc, Ishl, Iadd, Ineg, Isht, Itof, Itou, Finf, Fnan, Fneg, Snew, Sadd, Onew, Oadd, Anew,
-    Aadd, Bnew, Bneg, Nnew, Gdup, Gpop, Gswp,
-];
+mod conv {
+    use once_cell::sync::Lazy;
+    use std::collections::HashMap;
 
-// See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
-static INSN_MAP_A: Lazy<HashMap<u8, vm::Insn>> = Lazy::new(|| {
-    let a_chars = b"BubaAei'qtp?!~M@sqo.E#%";
-    let mut m = HashMap::new();
-    for (c, i) in a_chars.iter().zip(&ALL_INSNS) {
-        m.insert(*c, *i);
+    use crate::vm;
+
+    // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
+    pub static ASCII_TO_INSN_TABLE_A: Lazy<HashMap<u8, vm::Insn>> =
+        Lazy::new(|| build_ascii_to_insn_map(b"BubaAei'qtp?!~M@szo.E#%"));
+
+    pub static ASCII_TO_INSN_TABLE_S: Lazy<HashMap<u8, vm::Insn>> =
+        Lazy::new(|| build_ascii_to_insn_map(b"ShakrAzimbu$-+gv?^!y/e:"));
+
+    pub static INSN_TO_ASCII_TABLE_A: Lazy<HashMap<vm::Insn, u8>> =
+        Lazy::new(|| reverse(&*ASCII_TO_INSN_TABLE_A));
+
+    pub static INSN_TO_ASCII_TABLE_S: Lazy<HashMap<vm::Insn, u8>> =
+        Lazy::new(|| reverse(&*ASCII_TO_INSN_TABLE_S));
+
+    fn build_ascii_to_insn_map(asciis: &[u8]) -> HashMap<u8, vm::Insn> {
+        asciis
+            .iter()
+            .zip(&vm::ALL_INSNS)
+            .map(|(c, i)| (*c, *i))
+            .collect()
     }
-    m
-});
-static INSN_MAP_S: Lazy<HashMap<u8, vm::Insn>> = Lazy::new(|| {
-    let s_chars = b"ShakrAzimbu$-+gv?^!y/e:";
-    let mut m = HashMap::new();
-    for (c, i) in s_chars.iter().zip(&ALL_INSNS) {
-        m.insert(*c, *i);
+
+    fn reverse(orig: &HashMap<u8, vm::Insn>) -> HashMap<vm::Insn, u8> {
+        orig.iter().map(|(c, i)| (*i, *c)).collect()
     }
-    m
-});
+}
 
 /// A "mode" of the WATSON lexer.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -46,11 +51,29 @@ pub enum Mode {
 
 impl Mode {
     /// Returns the opposite state.
-    fn flip(self) -> Mode {
+    pub fn flip(self) -> Mode {
         match self {
             Mode::A => Mode::S,
             Mode::S => Mode::A,
         }
+    }
+
+    // Converts an ASCII character to its corresponding `vm::Insn` with respect to the current `Mode`.
+    pub fn ascii_to_insn(self, ascii: u8) -> Option<vm::Insn> {
+        let table = match self {
+            Mode::A => &*conv::ASCII_TO_INSN_TABLE_A,
+            Mode::S => &*conv::ASCII_TO_INSN_TABLE_S,
+        };
+        table.get(&ascii).map(|i| *i)
+    }
+
+    // Converts a `vm::Insn` to its corresponding ASCII character with respect to the current `Mode`.
+    pub fn insn_to_ascii(self, insn: vm::Insn) -> u8 {
+        let table = match self {
+            Mode::A => &*conv::INSN_TO_ASCII_TABLE_A,
+            Mode::S => &*conv::INSN_TO_ASCII_TABLE_S,
+        };
+        table.get(&insn).map(|c| *c).unwrap()
     }
 }
 
@@ -165,7 +188,7 @@ impl<R: io::Read> Lexer<R> {
         let token: Token;
         loop {
             let byte = self.next_byte()?;
-            match self.byte_to_insn(byte) {
+            match self.mode.ascii_to_insn(byte) {
                 None => {
                     continue;
                 }
@@ -190,20 +213,19 @@ impl<R: io::Read> Lexer<R> {
         }
         let cur = self.current;
         self.current += 1;
-        Ok(self.buf[cur])
+        let byte = self.buf[cur];
+        if byte == b'\n' {
+            self.line += 1;
+            self.column = 0;
+        } else {
+            self.column += 1;
+        }
+        Ok(byte)
     }
 
     fn fill_buffer(&mut self) -> Result<()> {
         self.filled = self.reader.read(&mut self.buf)?;
         Ok(())
-    }
-
-    fn byte_to_insn(&self, byte: u8) -> Option<vm::Insn> {
-        let m = match self.mode {
-            Mode::A => &*INSN_MAP_A,
-            Mode::S => &*INSN_MAP_S,
-        };
-        m.get(&byte).map(|insn| *insn)
     }
 
     fn advance_state(&mut self, insn: vm::Insn) {
@@ -216,5 +238,97 @@ impl<R: io::Read> Lexer<R> {
                 // nop
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // 0x21 to 0x7E
+    const ASCII_CHARS: std::ops::RangeInclusive<u8> = b'!'..=b'~';
+
+    #[test]
+    fn mode_ascii_to_insn_is_surjective() {
+        fn assert_surjective(mode: Mode) {
+            use std::collections::HashSet;
+
+            let mut insns = vm::ALL_INSNS.iter().map(|i| *i).collect::<HashSet<_>>();
+            for c in ASCII_CHARS {
+                mode.ascii_to_insn(c).map(|insn| insns.remove(&insn));
+            }
+            for insn in insns {
+                panic!(
+                    "mode={:?}: instruction {:?} does not have matching ASCII characters",
+                    mode, insn
+                );
+            }
+        }
+
+        assert_surjective(Mode::A);
+        assert_surjective(Mode::S);
+    }
+
+    #[test]
+    fn mode_ascii_to_insn_is_injective() {
+        fn assert_injective(mode: Mode) {
+            use std::collections::HashMap;
+
+            let mut reversed = HashMap::new();
+            for c in ASCII_CHARS {
+                mode.ascii_to_insn(c).map(|insn| match reversed.get(&insn) {
+                    None => {
+                        reversed.insert(insn, c);
+                    }
+                    Some(d) => {
+                        panic!(
+                            "mode={:?}: both {:?} and {:?} are converted into {:?}",
+                            mode, c, d, insn
+                        );
+                    }
+                });
+            }
+        }
+
+        assert_injective(Mode::A);
+        assert_injective(Mode::S);
+    }
+
+    #[test]
+    fn mode_insn_to_ascii_never_panics() {
+        fn assert_never_panics(mode: Mode) {
+            for i in vm::ALL_INSNS {
+                mode.insn_to_ascii(i);
+            }
+        }
+
+        assert_never_panics(Mode::A);
+        assert_never_panics(Mode::S);
+    }
+
+    #[test]
+    fn mode_insn_to_ascii_is_injective() {
+        fn assert_injective(mode: Mode) {
+            use std::collections::HashMap;
+
+            let mut reversed = HashMap::new();
+            for i in vm::ALL_INSNS {
+                let c = mode.insn_to_ascii(i);
+                match reversed.get(&c) {
+                    None => {
+                        reversed.insert(c, i);
+                    }
+                    Some(j) => {
+                        panic!(
+                            "mode={:?}: both {:?} and {:?} are converted into {:?}",
+                            mode, i, j, c
+                        );
+                    }
+                }
+            }
+        }
+
+        assert_injective(Mode::A);
+        assert_injective(Mode::S);
     }
 }
