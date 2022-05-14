@@ -404,7 +404,7 @@ mod test {
 
         let mut lexer = Builder::new().open(path.to_path_buf())?;
         assert_eq!(
-            lexer.next_token().unwrap(),
+            lexer.next_token()?,
             Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
@@ -430,7 +430,7 @@ mod test {
             .file_path(path_to_display)
             .open(path.to_path_buf())?;
         assert_eq!(
-            lexer.next_token().unwrap(),
+            lexer.next_token()?,
             Token {
                 insn: vm::Insn::Inew,
                 ascii: b'B',
@@ -440,5 +440,142 @@ mod test {
             },
         );
         Ok(())
+    }
+
+    #[test]
+    fn lexer_advances_column_and_line() {
+        let asciis = b"Bub\nba".to_vec();
+        let mut lexer = Builder::new().build(&asciis[..]);
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: None,
+                line: 1,
+                column: 1,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Iinc,
+                ascii: b'u',
+                file_path: None,
+                line: 1,
+                column: 2,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Ishl,
+                ascii: b'b',
+                file_path: None,
+                line: 1,
+                column: 3,
+            },
+        );
+
+        // lexer hits \n here
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Ishl,
+                ascii: b'b',
+                file_path: None,
+                line: 2,
+                column: 1,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Iadd,
+                ascii: b'a',
+                file_path: None,
+                line: 2,
+                column: 2,
+            },
+        );
+    }
+
+    #[test]
+    fn lexer_changes_mode() {
+        let asciis = b"Bu?Sh$B".to_vec();
+        let mut lexer = Builder::new().build(&asciis[..]);
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: None,
+                line: 1,
+                column: 1,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Iinc,
+                ascii: b'u',
+                file_path: None,
+                line: 1,
+                column: 2,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Snew,
+                ascii: b'?',
+                file_path: None,
+                line: 1,
+                column: 3,
+            },
+        );
+
+        // Lexer hits `Onew`, so it changes its mode to `S`.
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'S',
+                file_path: None,
+                line: 1,
+                column: 4,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Iinc,
+                ascii: b'h',
+                file_path: None,
+                line: 1,
+                column: 5,
+            },
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Snew,
+                ascii: b'$',
+                file_path: None,
+                line: 1,
+                column: 6,
+            },
+        );
+        // Lexer hits `Onew`, so it changes its mode to `A`.
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Token {
+                insn: vm::Insn::Inew,
+                ascii: b'B',
+                file_path: None,
+                line: 1,
+                column: 7,
+            },
+        );
     }
 }
