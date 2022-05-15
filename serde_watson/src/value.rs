@@ -120,6 +120,20 @@ impl<'de> Visitor<'de> for ValueVisitor {
         }
         Ok(Array(arr).into())
     }
+
+    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Bool(v).into())
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Nil.into())
+    }
 }
 
 struct ValueRef<'a>(&'a language::Value);
@@ -148,7 +162,8 @@ impl<'a> Serialize for ValueRef<'a> {
                 }
                 seq_ser.end()
             }
-            _ => todo!(),
+            &Bool(b) => serializer.serialize_bool(b),
+            &Nil => serializer.serialize_none(),
         }
     }
 }
@@ -299,5 +314,16 @@ mod test {
                 Token::SeqEnd,
             ],
         );
+    }
+
+    #[test]
+    fn ser_de_bool() {
+        assert_tokens(&Value(Bool(true)), &[Token::Bool(true)]);
+        assert_tokens(&Value(Bool(false)), &[Token::Bool(false)]);
+    }
+
+    #[test]
+    fn ser_de_nil() {
+        assert_tokens(&Value(Nil), &[Token::None]);
     }
 }
