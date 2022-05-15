@@ -4,6 +4,7 @@ use std::path;
 
 use crate::error::Result;
 use crate::language::{Insn, Mode};
+use crate::serializer::WriteInsn;
 
 const DEFAULT_CHARS_PER_LINE: usize = 80;
 
@@ -66,9 +67,11 @@ impl<W: io::Write> Unlexer<W> {
     pub fn new(writer: W) -> Self {
         Config::default().new(writer)
     }
+}
 
+impl<W: io::Write> WriteInsn for Unlexer<W> {
     /// Writes a single `Insn` to its underlying writer.
-    pub fn write(&mut self, insn: Insn) -> Result<()> {
+    fn write(&mut self, insn: Insn) -> Result<()> {
         let mut buf = [self.mode.insn_to_ascii(insn)];
         self.writer.write_all(&buf)?;
         self.column += 1;
