@@ -31,6 +31,7 @@ impl Serialize for Value {
         match &self.0 {
             &Int(n) => serializer.serialize_i64(n),
             &Uint(n) => serializer.serialize_u64(n),
+            &Float(f) => serializer.serialize_f64(f),
             _ => todo!(),
         }
     }
@@ -67,6 +68,13 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         Ok(Uint(v).into())
     }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Float(v).into())
+    }
 }
 
 #[cfg(test)]
@@ -91,5 +99,12 @@ mod test {
             &Value(Uint(0xdead_beef_fefe_aaaa)),
             &[Token::U64(0xdead_beef_fefe_aaaa)],
         );
+    }
+
+    #[test]
+    fn ser_de_float() {
+        assert_tokens(&Value(Float(0.0)), &[Token::F64(0.0)]);
+        assert_tokens(&Value(Float(1.23e45)), &[Token::F64(1.23e45)]);
+        assert_tokens(&Value(Float(6.78e-91)), &[Token::F64(6.78e-91)]);
     }
 }
