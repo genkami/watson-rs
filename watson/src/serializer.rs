@@ -9,18 +9,26 @@ type MapIter = std::collections::hash_map::IntoIter<Vec<u8>, Value>;
 /// A state of a `Serializer`.
 #[derive(Debug)]
 enum State {
-    //                                                       (n!=0 && n%2==0/None)---> IntWaitingNextBit(n>>1, shamt=shamt+1)
-    //                                                                 |
-    //                      (*) IntInitial(n) ---(*/Inew)---> IntWaitingNextBit(n, shamt=0) ---(n==0/None)---> Done
-    //                                                                 |
-    //                                                       (n!=0 && n%2==1/Inew)
-    //                                                                 |
-    //                                                                 v
-    // IntNextBitShifting(n, shamt, i=shamt) <---(*/Iinc)--- IntNextBitAllocated(n, shamt)
-    //       |
-    //     (i==0/Iadd)---> IntWaitingNextBit(n>>1, shamt=shamt+1)
-    //       |
-    //     (i!=0/Ishl)---> IntNextBitShifting(n, shamt, i=i-1)
+    // (*) IntInitial(n)
+    //         |
+    //      (*/Inew)
+    //         |
+    //         v
+    //     IntWaitingNextBit(n, shamt=0) ---(n==0/None)---> Done
+    //         |
+    //      (n!=0 && n%2==0/None)---> IntWaitingNextBit(n>>1, shamt=shamt+1)
+    //         |
+    //      (n!=0 && n%2==1/Inew)
+    //         |
+    //         v
+    //     IntNextBitAllocated(n, shamt)
+    //         |
+    //       (*/Iinc)
+    //         |
+    //         v
+    //     IntNextBitShifting(n, shamt, i=shamt) ---(i==0/Iadd)---> IntWaitingNextBit(n>>1, shamt=shamt+1)
+    //         |
+    //       (i!=0/Ishl)---> IntNextBitShifting(n, shamt, i=i-1)
     IntInitial(u64),
     IntWaitingNextBit(u64, usize),
     IntNextBitAllocated(u64, usize),
