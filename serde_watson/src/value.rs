@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops;
 
 use serde::de;
 use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
@@ -8,18 +9,25 @@ use watson::language::Value::*;
 
 /// Value implements Serialize and Deserialize for `value::Value`.
 #[derive(PartialEq, Clone, Debug)]
-pub struct Value(language::Value);
+pub struct Value {
+    value: language::Value,
+}
 
 impl Value {
+    /// Returns a new `Value`.
+    pub fn new(v: language::Value) -> Self {
+        Value { value: v }
+    }
+
     /// Returns underlying `language::Value`.
     pub fn into_watson(self) -> language::Value {
-        self.0
+        self.value
     }
 }
 
 impl From<language::Value> for Value {
     fn from(v: language::Value) -> Self {
-        Value(v)
+        Value::new(v)
     }
 }
 
@@ -28,7 +36,7 @@ impl Serialize for Value {
     where
         S: Serializer,
     {
-        ValueRef(&self.0).serialize(serializer)
+        ValueRef::new(&self.value).serialize(serializer)
     }
 }
 
@@ -136,14 +144,37 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 }
 
-struct ValueRef<'a>(&'a language::Value);
+pub struct ValueRef<'a> {
+    value: &'a language::Value,
+}
+
+impl<'a> ValueRef<'a> {
+    /// Returns a new `ValueRef` that points to the given `Value`.
+    pub fn new(v: &'a language::Value) -> Self {
+        ValueRef { value: v }
+    }
+}
+
+impl<'a> AsRef<language::Value> for ValueRef<'a> {
+    fn as_ref(&self) -> &language::Value {
+        self.value
+    }
+}
+
+impl<'a> ops::Deref for ValueRef<'a> {
+    type Target = language::Value;
+
+    fn deref(&self) -> &language::Value {
+        self.value
+    }
+}
 
 impl<'a> Serialize for ValueRef<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        match self.0 {
+        match self.value {
             &Int(n) => serializer.serialize_i64(n),
             &Uint(n) => serializer.serialize_u64(n),
             &Float(f) => serializer.serialize_f64(f),
@@ -151,14 +182,14 @@ impl<'a> Serialize for ValueRef<'a> {
             &Object(ref map) => {
                 let mut map_ser = serializer.serialize_map(Some(map.len()))?;
                 for (k, v) in map {
-                    map_ser.serialize_entry(&ObjectKeyRef(k), &ValueRef(v))?;
+                    map_ser.serialize_entry(&ObjectKeyRef(k), &ValueRef::new(v))?;
                 }
                 map_ser.end()
             }
             &Array(ref arr) => {
                 let mut seq_ser = serializer.serialize_seq(Some(arr.len()))?;
                 for i in arr {
-                    seq_ser.serialize_element(&ValueRef(i))?;
+                    seq_ser.serialize_element(&ValueRef::new(i))?;
                 }
                 seq_ser.end()
             }
@@ -244,34 +275,34 @@ mod test {
 
     #[test]
     fn ser_de_int() {
-        assert_tokens(&Value(Int(0)), &[Token::I64(0)]);
-        assert_tokens(&Value(Int(123)), &[Token::I64(123)]);
-        assert_tokens(&Value(Int(-123)), &[Token::I64(-123)]);
+        assert_tokens(&Value::new(Int(0)), &[Token::I64(0)]);
+        assert_tokens(&Value::new(Int(123)), &[Token::I64(123)]);
+        assert_tokens(&Value::new(Int(-123)), &[Token::I64(-123)]);
     }
 
     #[test]
     fn ser_de_uint() {
-        assert_tokens(&Value(Uint(0)), &[Token::U64(0)]);
-        assert_tokens(&Value(Uint(123)), &[Token::U64(123)]);
+        assert_tokens(&Value::new(Uint(0)), &[Token::U64(0)]);
+        assert_tokens(&Value::new(Uint(123)), &[Token::U64(123)]);
         assert_tokens(
-            &Value(Uint(0xdead_beef_fefe_aaaa)),
+            &Value::new(Uint(0xdead_beef_fefe_aaaa)),
             &[Token::U64(0xdead_beef_fefe_aaaa)],
         );
     }
 
     #[test]
     fn ser_de_float() {
-        assert_tokens(&Value(Float(0.0)), &[Token::F64(0.0)]);
-        assert_tokens(&Value(Float(1.23e45)), &[Token::F64(1.23e45)]);
-        assert_tokens(&Value(Float(6.78e-91)), &[Token::F64(6.78e-91)]);
+        assert_tokens(&Value::new(Float(0.0)), &[Token::F64(0.0)]);
+        assert_tokens(&Value::new(Float(1.23e45)), &[Token::F64(1.23e45)]);
+        assert_tokens(&Value::new(Float(6.78e-91)), &[Token::F64(6.78e-91)]);
     }
 
     #[test]
     fn ser_de_string() {
-        assert_tokens(&Value(String(b"".to_vec())), &[Token::Bytes(b"")]);
-        assert_tokens(&Value(String(b"a".to_vec())), &[Token::Bytes(b"a")]);
+        assert_tokens(&Value::new(String(b"".to_vec())), &[Token::Bytes(b"")]);
+        assert_tokens(&Value::new(String(b"a".to_vec())), &[Token::Bytes(b"a")]);
         assert_tokens(
-            &Value(String(b"hello world!".to_vec())),
+            &Value::new(String(b"hello world!".to_vec())),
             &[Token::Bytes(b"hello world!")],
         );
     }
@@ -279,11 +310,11 @@ mod test {
     #[test]
     fn ser_de_object() {
         assert_tokens(
-            &Value(Object(Map::new())),
+            &Value::new(Object(Map::new())),
             &[Token::Map { len: Some(0) }, Token::MapEnd],
         );
         assert_tokens(
-            &Value(Object(
+            &Value::new(Object(
                 vec![(b"value".to_vec(), Int(123))].into_iter().collect(),
             )),
             &[
@@ -298,15 +329,15 @@ mod test {
     #[test]
     fn ser_de_array() {
         assert_tokens(
-            &Value(Array(vec![])),
+            &Value::new(Array(vec![])),
             &[Token::Seq { len: Some(0) }, Token::SeqEnd],
         );
         assert_tokens(
-            &Value(Array(vec![Int(123)])),
+            &Value::new(Array(vec![Int(123)])),
             &[Token::Seq { len: Some(1) }, Token::I64(123), Token::SeqEnd],
         );
         assert_tokens(
-            &Value(Array(vec![Int(123), String(b"hello".to_vec())])),
+            &Value::new(Array(vec![Int(123), String(b"hello".to_vec())])),
             &[
                 Token::Seq { len: Some(2) },
                 Token::I64(123),
@@ -318,12 +349,12 @@ mod test {
 
     #[test]
     fn ser_de_bool() {
-        assert_tokens(&Value(Bool(true)), &[Token::Bool(true)]);
-        assert_tokens(&Value(Bool(false)), &[Token::Bool(false)]);
+        assert_tokens(&Value::new(Bool(true)), &[Token::Bool(true)]);
+        assert_tokens(&Value::new(Bool(false)), &[Token::Bool(false)]);
     }
 
     #[test]
     fn ser_de_nil() {
-        assert_tokens(&Value(Nil), &[Token::None]);
+        assert_tokens(&Value::new(Nil), &[Token::None]);
     }
 }
