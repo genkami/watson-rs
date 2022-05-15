@@ -10,7 +10,7 @@ use crate::language::{Insn, Location, Mode, Token};
 const BUF_SIZE: usize = 256;
 
 /// A lexer of the WATSON language.
-pub struct Lexer<R: io::Read> {
+pub struct Lexer<R> {
     reader: R,
     buf: Vec<u8>,
     filled: usize,
@@ -44,7 +44,7 @@ impl Default for Config {
 
 impl Config {
     /// Returns a new `Lexer` that reads from the given reader.
-    pub fn new<R: io::Read>(self, reader: R) -> Lexer<R> {
+    pub fn new<R>(self, reader: R) -> Lexer<R> {
         Lexer {
             reader: reader,
             buf: vec![0; BUF_SIZE],
@@ -75,12 +75,14 @@ impl Lexer<fs::File> {
     }
 }
 
-impl<R: io::Read> Lexer<R> {
+impl<R> Lexer<R> {
     /// Returns a new `Lexer` with the default configuration.
     pub fn new(reader: R) -> Self {
         Config::default().new(reader)
     }
+}
 
+impl<R: io::Read> Lexer<R> {
     /// Returns a next token if exists.
     pub fn next_token(&mut self) -> Result<Token> {
         let token: Token;

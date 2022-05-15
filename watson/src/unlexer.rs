@@ -9,7 +9,7 @@ use crate::serializer::WriteInsn;
 const DEFAULT_CHARS_PER_LINE: usize = 80;
 
 /// `Unlexer` converts a sequence of `Insn`s to its ASCII representation.
-pub struct Unlexer<W: io::Write> {
+pub struct Unlexer<W> {
     writer: W,
 
     mode: Mode,
@@ -39,7 +39,7 @@ impl Default for Config {
 
 impl Config {
     /// Returns a new `Unlexer` that writes to the given writer.
-    pub fn new<W: io::Write>(self, writer: W) -> Unlexer<W> {
+    pub fn new<W>(self, writer: W) -> Unlexer<W> {
         Unlexer {
             writer: writer,
             mode: self.initial_mode,
@@ -62,7 +62,7 @@ impl Unlexer<fs::File> {
     }
 }
 
-impl<W: io::Write> Unlexer<W> {
+impl<W> Unlexer<W> {
     /// Returns a new `Unlexer` that writes to the given writer with the default configuration.
     pub fn new(writer: W) -> Self {
         Config::default().new(writer)
