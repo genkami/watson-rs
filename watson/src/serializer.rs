@@ -38,7 +38,7 @@ impl<W: WriteInsn> Serializer<W> {
     /// Serializes a single `Value`.
     pub fn serialize(&mut self, v: &Value) -> Result<()> {
         match v {
-            &Int(n) => self.serialize_int(n as u64),
+            &Int(n) => self.serialize_int(n),
             &Uint(n) => self.serialize_uint(n),
             &Float(f) => self.serialize_float(f),
             &String(ref s) => self.serialize_string(s),
@@ -49,7 +49,8 @@ impl<W: WriteInsn> Serializer<W> {
         }
     }
 
-    fn serialize_int(&mut self, mut n: u64) -> Result<()> {
+    pub fn serialize_int(&mut self, n: i64) -> Result<()> {
+        let mut n = n as u64;
         self.write(Inew)?;
         let mut shift: usize = 0;
         while n != 0 {
@@ -66,12 +67,12 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    fn serialize_uint(&mut self, n: u64) -> Result<()> {
-        self.serialize_int(n)?;
+    pub fn serialize_uint(&mut self, n: u64) -> Result<()> {
+        self.serialize_int(n as i64)?;
         self.write(Itou)
     }
 
-    fn serialize_float(&mut self, f: f64) -> Result<()> {
+    pub fn serialize_float(&mut self, f: f64) -> Result<()> {
         if f.is_nan() {
             self.write(Fnan)
         } else if f.is_infinite() {
@@ -81,21 +82,21 @@ impl<W: WriteInsn> Serializer<W> {
             }
             Ok(())
         } else {
-            self.serialize_int(f.to_bits())?;
+            self.serialize_int(f.to_bits() as i64)?;
             self.write(Itof)
         }
     }
 
-    fn serialize_string(&mut self, s: &Vec<u8>) -> Result<()> {
+    pub fn serialize_string(&mut self, s: &Vec<u8>) -> Result<()> {
         self.write(Snew)?;
         for c in s {
-            self.serialize_int(*c as u64)?;
+            self.serialize_int(*c as i64)?;
             self.write(Sadd)?;
         }
         Ok(())
     }
 
-    fn serialize_object(&mut self, map: &Map) -> Result<()> {
+    pub fn serialize_object(&mut self, map: &Map) -> Result<()> {
         self.write(Onew)?;
         for (k, v) in map {
             self.serialize_string(k)?;
@@ -105,7 +106,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    fn serialize_array(&mut self, arr: &Vec<Value>) -> Result<()> {
+    pub fn serialize_array(&mut self, arr: &Vec<Value>) -> Result<()> {
         self.write(Anew)?;
         for i in arr {
             self.serialize(i)?;
@@ -114,7 +115,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    fn serialize_bool(&mut self, b: bool) -> Result<()> {
+    pub fn serialize_bool(&mut self, b: bool) -> Result<()> {
         self.write(Bnew)?;
         if b {
             self.write(Bneg)?;
@@ -122,7 +123,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    fn serialize_nil(&mut self) -> Result<()> {
+    pub fn serialize_nil(&mut self) -> Result<()> {
         self.write(Nnew)
     }
 
