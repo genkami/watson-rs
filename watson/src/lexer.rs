@@ -50,7 +50,7 @@ impl Lexer<fs::File> {
 
     /// Same as `open` but in a configurable way.
     pub fn open_with_config(path: &path::Path, mut conf: Config) -> Result<Self> {
-        let file = fs::File::open(&path).into_watson_result(|| Location::unknown())?;
+        let file = fs::File::open(&path)?;
         if conf.file_path.is_none() {
             conf.file_path = Some(path.to_path_buf().into());
         }
@@ -127,7 +127,7 @@ impl<R: io::Read> Lexer<R> {
         self.filled = self
             .reader
             .read(&mut self.buf)
-            .into_watson_result(|| self.current_location())?;
+            .map_err(|e| Error::from_io_error(e, self.current_location()))?;
         Ok(())
     }
 
@@ -239,10 +239,8 @@ mod test {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
-        let mut tempfile = NamedTempFile::new().into_watson_result(|| Location::unknown())?;
-        tempfile
-            .write_all(b"Bubba")
-            .into_watson_result(|| Location::unknown())?;
+        let mut tempfile = NamedTempFile::new()?;
+        tempfile.write_all(b"Bubba")?;
         let path = tempfile.into_temp_path();
 
         let mut lexer = Lexer::open(&path)?;
@@ -266,10 +264,8 @@ mod test {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
-        let mut tempfile = NamedTempFile::new().into_watson_result(|| Location::unknown())?;
-        tempfile
-            .write_all(b"Bubba")
-            .into_watson_result(|| Location::unknown())?;
+        let mut tempfile = NamedTempFile::new()?;
+        tempfile.write_all(b"Bubba")?;
         let path = tempfile.into_temp_path();
         let path_to_display = path::Path::new("anothername.watson");
 

@@ -32,6 +32,17 @@ pub enum ErrorKind {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+impl Error {
+    /// Creates a new `Error` caused by the given `io::Error`.
+    pub fn from_io_error(e: io::Error, location: Location) -> Self {
+        Error {
+            kind: ErrorKind::IOError,
+            location: location,
+            source: Some(Box::new(e)),
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.kind)?;
@@ -72,19 +83,8 @@ impl std::error::Error for Error {
     }
 }
 
-pub trait IntoWATSONResult {
-    type Ok;
-    fn into_watson_result<F: FnOnce() -> Location>(self, f: F) -> Result<Self::Ok>;
-}
-
-impl<T> IntoWATSONResult for io::Result<T> {
-    type Ok = T;
-
-    fn into_watson_result<F: FnOnce() -> Location>(self, f: F) -> Result<T> {
-        self.map_err(|ioerr| Error {
-            kind: ErrorKind::IOError,
-            location: f(),
-            source: Some(Box::new(ioerr)),
-        })
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::from_io_error(e, Location::unknown())
     }
 }
