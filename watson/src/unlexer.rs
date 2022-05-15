@@ -5,14 +5,14 @@ use std::path;
 use crate::error::Result;
 use crate::language::{Insn, Mode};
 
-const CHARS_PER_LINE: usize = 80;
+const DEFAULT_CHARS_PER_LINE: usize = 80;
 
 /// `Unlexer` converts a sequence of `Insn`s to its ASCII representation.
 pub struct Unlexer<W: io::Write> {
     writer: W,
 
     mode: Mode,
-    compact: bool,
+    chars_per_line: usize,
 
     column: usize,
 }
@@ -22,15 +22,16 @@ pub struct Config {
     /// Initial mode of an `Unlexer` (defaults to `A` by the specification).
     pub initial_mode: Mode,
 
-    /// If set to true, `Unlexer` does not write whitespaces.
-    pub compact: bool,
+    /// An `Unlexer` emits a newline character every time it emits `chars_per_line` consecutive characters.
+    /// If set to zero, then `Unlexer` does not emit any newline characters.
+    pub chars_per_line: usize,
 }
 
 impl Default for Config {
     fn default() -> Config {
         Config {
             initial_mode: Mode::A,
-            compact: false,
+            chars_per_line: DEFAULT_CHARS_PER_LINE,
         }
     }
 }
@@ -41,21 +42,21 @@ impl Config {
         Unlexer {
             writer: writer,
             mode: self.initial_mode,
-            compact: self.compact,
+            chars_per_line: self.chars_per_line,
             column: 0,
         }
     }
 
     /// Creates a file (by `fs::File::create`) and returns an `Unlexer` that writes to this file.
     pub fn open(self, path: &path::Path) -> Result<Unlexer<fs::File>> {
-        let f = fs::File::open(path)?;
+        let f = fs::File::create(path)?;
         Ok(self.new(f))
     }
 }
 
 impl Unlexer<fs::File> {
     /// Creates a file (by `fs::File::create`) and returns an `Unlexer` that writes to this file with the default configuration.
-    pub fn open(self, path: &path::Path) -> Result<Self> {
+    pub fn open(path: &path::Path) -> Result<Self> {
         Config::default().open(path)
     }
 }
@@ -71,7 +72,7 @@ impl<W: io::Write> Unlexer<W> {
         let mut buf = [self.mode.insn_to_ascii(insn)];
         self.writer.write_all(&buf)?;
         self.column += 1;
-        if !self.compact && CHARS_PER_LINE <= self.column {
+        if 0 < self.chars_per_line && self.chars_per_line <= self.column {
             self.column = 0;
             buf[0] = b'\n';
             self.writer.write_all(&buf)?;
@@ -91,13 +92,14 @@ impl<W: io::Write> Unlexer<W> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use Insn::*;
 
     #[test]
     fn unlexer_new_initial_mode_defaults_to_a() -> Result<()> {
-        let mut buf = VecWriter::new();
+        let mut buf = Vec::new();
         let mut unlexer = Unlexer::new(&mut buf);
         unlexer.write(Insn::Inew)?;
-        assert_eq!(buf.into_vec(), b"B".to_vec());
+        assert_eq!(buf, b"B".to_vec());
         Ok(())
     }
 
@@ -105,35 +107,56 @@ mod test {
     fn unlexer_new_initlal_mode_is_configurable() -> Result<()> {
         let mut conf = Config::default();
         conf.initial_mode = Mode::S;
-        let mut buf = VecWriter::new();
+        let mut buf = Vec::new();
         let mut unlexer = conf.new(&mut buf);
         unlexer.write(Insn::Inew)?;
-        assert_eq!(buf.into_vec(), b"S".to_vec());
+        assert_eq!(buf, b"S".to_vec());
         Ok(())
     }
 
-    struct VecWriter(Vec<u8>);
+    #[test]
+    fn unlexer_open_opens_a_file() -> Result<()> {
+        use io::BufRead;
 
-    impl VecWriter {
-        fn new() -> Self {
-            VecWriter(Vec::new())
+        let tempdir = tempfile::tempdir()?;
+        let path = tempdir.path().join("data.watson");
+        {
+            let mut unlexer = Unlexer::open(&path)?;
+            unlexer.write(Insn::Inew)?;
         }
 
-        fn into_vec(self) -> Vec<u8> {
-            self.0
-        }
+        let mut lines = io::BufReader::new(fs::File::open(&path)?).lines();
+        assert_eq!(lines.next().unwrap().unwrap(), "B");
+        assert!(lines.next().is_none());
+
+        Ok(())
     }
 
-    impl<'a> io::Write for &'a mut VecWriter {
-        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            for b in buf.iter() {
-                self.0.push(*b);
-            }
-            Ok(buf.len())
+    #[test]
+    fn unlexer_changes_its_mode() -> Result<()> {
+        let mut buf = Vec::new();
+        let mut unlexer = Unlexer::new(&mut buf);
+        for insn in vec![Inew, Snew, Inew, Snew, Inew] {
+            unlexer.write(insn)?;
         }
+        assert_eq!(buf, b"B?S$B".to_vec());
+        Ok(())
+    }
 
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
+    #[test]
+    fn unlexer_emits_newline() -> Result<()> {
+        let mut conf = Config::default();
+        conf.chars_per_line = 5;
+        let mut buf = Vec::new();
+        let mut unlexer = conf.new(&mut buf);
+
+        for insn in vec![
+            Inew, Iinc, Ishl, Ishl, Iadd, Snew, Inew, Iinc, Ishl, Ishl, Iadd, Snew, Inew,
+        ] {
+            unlexer.write(insn)?;
         }
+        assert_eq!(buf, b"Bubba\n?Shaa\nk$B".to_vec());
+
+        Ok(())
     }
 }
