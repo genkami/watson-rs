@@ -42,41 +42,43 @@ impl Default for Config {
     }
 }
 
-impl Lexer<fs::File> {
-    /// Opens a file and builds a `Lexer` that reads from the given file.
-    pub fn open(path: &path::Path) -> Result<Self> {
-        Lexer::open_with_config(path, Config::default())
-    }
-
-    /// Same as `open` but in a configurable way.
-    pub fn open_with_config(path: &path::Path, mut conf: Config) -> Result<Self> {
-        let file = fs::File::open(&path)?;
-        if conf.file_path.is_none() {
-            conf.file_path = Some(path.to_path_buf().into());
-        }
-        Ok(Lexer::new_with_config(file, conf))
-    }
-}
-
-impl<R: io::Read> Lexer<R> {
+impl Config {
     /// Returns a new `Lexer` that reads from the given reader.
-    pub fn new(reader: R) -> Self {
-        Lexer::new_with_config(reader, Config::default())
-    }
-
-    /// Same as `new` but in a configurable way.
-    pub fn new_with_config(reader: R, conf: Config) -> Self {
+    pub fn new<R: io::Read>(self, reader: R) -> Lexer<R> {
         Lexer {
             reader: reader,
             buf: vec![0; BUF_SIZE],
             filled: 0,
             current: 0,
-            mode: conf.initial_mode,
+            mode: self.initial_mode,
             last_read_ascii: 0,
-            file_path: conf.file_path,
+            file_path: self.file_path,
             line: 1,
             column: 0,
         }
+    }
+
+    /// Opens a file and builds a `Lexer` that reads from the given file.
+    pub fn open(mut self, path: &path::Path) -> Result<Lexer<fs::File>> {
+        let file = fs::File::open(&path)?;
+        if self.file_path.is_none() {
+            self.file_path = Some(path.to_path_buf().into());
+        }
+        Ok(self.new(file))
+    }
+}
+
+impl Lexer<fs::File> {
+    /// Opens a file and builds a `Lexer` with the default configuration.
+    pub fn open(path: &path::Path) -> Result<Self> {
+        Config::default().open(path)
+    }
+}
+
+impl<R: io::Read> Lexer<R> {
+    /// Returns a new `Lexer` with the default configuration.
+    pub fn new(reader: R) -> Self {
+        Config::default().new(reader)
     }
 
     /// Returns a next token if exists.
@@ -180,7 +182,7 @@ mod test {
         let asciis = b"Shaak".to_vec();
         let mut conf = Config::default();
         conf.initial_mode = Mode::S;
-        let mut lexer = Lexer::new_with_config(&asciis[..], conf);
+        let mut lexer = conf.new(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -219,7 +221,7 @@ mod test {
         let path = path::Path::new("test.watson");
         let mut conf = Config::default();
         conf.file_path = Some(path.to_path_buf().into());
-        let mut lexer = Lexer::new_with_config(&asciis[..], conf);
+        let mut lexer = conf.new(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -271,7 +273,7 @@ mod test {
 
         let mut conf = Config::default();
         conf.file_path = Some(path_to_display.to_path_buf().into());
-        let mut lexer = Lexer::open_with_config(&path, conf)?;
+        let mut lexer = conf.open(&path)?;
         assert_eq!(
             lexer.next_token()?,
             Token {
