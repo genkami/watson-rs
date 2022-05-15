@@ -1,8 +1,8 @@
 use std::fmt;
 
 use serde::de;
-use serde::de::{Deserialize, Deserializer, Visitor};
-use serde::ser::{Serialize, Serializer};
+use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
+use serde::ser::{Serialize, SerializeMap, Serializer};
 use watson::language;
 use watson::language::Value::*;
 
@@ -28,13 +28,7 @@ impl Serialize for Value {
     where
         S: Serializer,
     {
-        match &self.0 {
-            &Int(n) => serializer.serialize_i64(n),
-            &Uint(n) => serializer.serialize_u64(n),
-            &Float(f) => serializer.serialize_f64(f),
-            &String(ref s) => serializer.serialize_bytes(s),
-            _ => todo!(),
-        }
+        ValueRef(&self.0).serialize(serializer)
     }
 }
 
@@ -104,11 +98,113 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         Ok(String(v).into())
     }
+
+    fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+    where
+        M: MapAccess<'de>,
+    {
+        let mut map = language::Map::with_capacity(access.size_hint().unwrap_or(0));
+        while let Some((key, value)) = access.next_entry::<ObjectKey, Value>()? {
+            map.insert(key.into_bytes(), value.into_watson());
+        }
+        Ok(Object(map).into())
+    }
+}
+
+struct ValueRef<'a>(&'a language::Value);
+
+impl<'a> Serialize for ValueRef<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0 {
+            &Int(n) => serializer.serialize_i64(n),
+            &Uint(n) => serializer.serialize_u64(n),
+            &Float(f) => serializer.serialize_f64(f),
+            &String(ref s) => serializer.serialize_bytes(s),
+            &Object(ref map) => {
+                let mut map_ser = serializer.serialize_map(Some(map.len()))?;
+                for (k, v) in map {
+                    map_ser.serialize_entry(&ObjectKeyRef(k), &ValueRef(v))?;
+                }
+                map_ser.end()
+            }
+            _ => todo!(),
+        }
+    }
+}
+
+struct ObjectKeyRef<'a>(&'a Vec<u8>);
+
+impl<'a> Serialize for ObjectKeyRef<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(self.0)
+    }
+}
+
+struct ObjectKey(Vec<u8>);
+
+impl ObjectKey {
+    fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for ObjectKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(BytesVisitor)
+    }
+}
+
+struct BytesVisitor;
+
+impl<'de> Visitor<'de> for BytesVisitor {
+    type Value = ObjectKey;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("bytes")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_bytes(v.as_bytes())
+    }
+
+    fn visit_string<E>(self, v: std::string::String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_byte_buf(v.into_bytes())
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(ObjectKey(v.to_vec()))
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(ObjectKey(v))
+    }
 }
 
 #[cfg(test)]
 mod test {
     use serde_test::{assert_tokens, Token};
+    use watson::language::Map;
     use watson::language::Value::*;
 
     use super::*;
@@ -144,6 +240,25 @@ mod test {
         assert_tokens(
             &Value(String(b"hello world!".to_vec())),
             &[Token::Bytes(b"hello world!")],
+        );
+    }
+
+    #[test]
+    fn ser_de_object() {
+        assert_tokens(
+            &Value(Object(Map::new())),
+            &[Token::Map { len: Some(0) }, Token::MapEnd],
+        );
+        assert_tokens(
+            &Value(Object(
+                vec![(b"value".to_vec(), Int(123))].into_iter().collect(),
+            )),
+            &[
+                Token::Map { len: Some(1) },
+                Token::Bytes(b"value"),
+                Token::I64(123),
+                Token::MapEnd,
+            ],
         );
     }
 }
