@@ -1,8 +1,8 @@
 use std::fmt;
 
 use serde::de;
-use serde::de::{Deserialize, Deserializer, MapAccess, Visitor};
-use serde::ser::{Serialize, SerializeMap, Serializer};
+use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
+use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
 use watson::language;
 use watson::language::Value::*;
 
@@ -109,6 +109,17 @@ impl<'de> Visitor<'de> for ValueVisitor {
         }
         Ok(Object(map).into())
     }
+
+    fn visit_seq<S>(self, mut access: S) -> Result<Self::Value, S::Error>
+    where
+        S: SeqAccess<'de>,
+    {
+        let mut arr = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        while let Some(elem) = access.next_element::<Value>()? {
+            arr.push(elem.into_watson());
+        }
+        Ok(Array(arr).into())
+    }
 }
 
 struct ValueRef<'a>(&'a language::Value);
@@ -129,6 +140,13 @@ impl<'a> Serialize for ValueRef<'a> {
                     map_ser.serialize_entry(&ObjectKeyRef(k), &ValueRef(v))?;
                 }
                 map_ser.end()
+            }
+            &Array(ref arr) => {
+                let mut seq_ser = serializer.serialize_seq(Some(arr.len()))?;
+                for i in arr {
+                    seq_ser.serialize_element(&ValueRef(i))?;
+                }
+                seq_ser.end()
             }
             _ => todo!(),
         }
@@ -258,6 +276,27 @@ mod test {
                 Token::Bytes(b"value"),
                 Token::I64(123),
                 Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn ser_de_array() {
+        assert_tokens(
+            &Value(Array(vec![])),
+            &[Token::Seq { len: Some(0) }, Token::SeqEnd],
+        );
+        assert_tokens(
+            &Value(Array(vec![Int(123)])),
+            &[Token::Seq { len: Some(1) }, Token::I64(123), Token::SeqEnd],
+        );
+        assert_tokens(
+            &Value(Array(vec![Int(123), String(b"hello".to_vec())])),
+            &[
+                Token::Seq { len: Some(2) },
+                Token::I64(123),
+                Token::Bytes(b"hello"),
+                Token::SeqEnd,
             ],
         );
     }
