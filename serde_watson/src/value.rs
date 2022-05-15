@@ -32,6 +32,7 @@ impl Serialize for Value {
             &Int(n) => serializer.serialize_i64(n),
             &Uint(n) => serializer.serialize_u64(n),
             &Float(f) => serializer.serialize_f64(f),
+            &String(ref s) => serializer.serialize_bytes(s),
             _ => todo!(),
         }
     }
@@ -75,6 +76,34 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         Ok(Float(v).into())
     }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_bytes(v.as_bytes())
+    }
+
+    fn visit_string<E>(self, v: std::string::String) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        self.visit_byte_buf(v.into_bytes())
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(String(v.to_owned()).into())
+    }
+
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(String(v).into())
+    }
 }
 
 #[cfg(test)]
@@ -106,5 +135,15 @@ mod test {
         assert_tokens(&Value(Float(0.0)), &[Token::F64(0.0)]);
         assert_tokens(&Value(Float(1.23e45)), &[Token::F64(1.23e45)]);
         assert_tokens(&Value(Float(6.78e-91)), &[Token::F64(6.78e-91)]);
+    }
+
+    #[test]
+    fn ser_de_string() {
+        assert_tokens(&Value(String(b"".to_vec())), &[Token::Bytes(b"")]);
+        assert_tokens(&Value(String(b"a".to_vec())), &[Token::Bytes(b"a")]);
+        assert_tokens(
+            &Value(String(b"hello world!".to_vec())),
+            &[Token::Bytes(b"hello world!")],
+        );
     }
 }
