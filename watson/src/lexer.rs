@@ -3,7 +3,7 @@ use std::io;
 use std::path;
 use std::rc::Rc;
 
-use crate::error::*;
+use crate::error::{Error, Result};
 use crate::language::{Insn, Location, Mode, Token};
 
 // No specific reason to use this value.

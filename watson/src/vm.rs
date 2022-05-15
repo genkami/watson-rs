@@ -1,5 +1,4 @@
-use crate::error::*;
-
+use crate::error::{Error, ErrorKind, Result};
 use crate::language::{Insn, IsValue, Map, Token, Value};
 use Insn::*;
 
