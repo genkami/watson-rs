@@ -41,6 +41,23 @@ enum State {
     FloatWaitingNegation,
     FloatPushingInt(Box<State>),
 
+    // (*) StringInitial(s)
+    //         |
+    //      (*/Snew)
+    //         |
+    //     StringWaitingNextChar(s, len=len(s), i=0) ---(len<=i/None)---> Done
+    //         |
+    //      (i<len/None)
+    //         |
+    //     StringPushingChar(IntInitial(s[i] as u64), s, len, i)
+    //         |
+    //       (...)
+    //         |
+    //     StringPushingChar(Done, s, len, i) ---(*/Sadd)---> StringWaitingNextChar(s, len, i=i+1)
+    StringInitial(Vec<u8>),
+    StringWaitingNextChar(Vec<u8>, usize, usize),
+    StringPushingChar(Box<State>, Vec<u8>, usize, usize),
+
     // Done ---(*/None)---> Done
     Done,
 }
@@ -52,6 +69,7 @@ impl State {
             Int(i) => State::IntInitial(i as u64),
             Uint(u) => State::UintInitial(u),
             Float(f) => State::FloatInitial(f),
+            String(s) => State::StringInitial(s),
             _ => todo!(),
         }
     }
@@ -134,6 +152,31 @@ impl State {
                 _ => {
                     let insn = boxed_state.transition();
                     *self = FloatPushingInt(boxed_state);
+                    insn
+                }
+            },
+            StringInitial(s) => {
+                let len = s.len();
+                *self = StringWaitingNextChar(s, len, 0);
+                Some(Snew)
+            }
+            StringWaitingNextChar(s, len, i) => {
+                if len <= i {
+                    *self = Done;
+                    None
+                } else {
+                    *self = StringPushingChar(Box::new(IntInitial(s[i] as u64)), s, len, i);
+                    None
+                }
+            }
+            StringPushingChar(mut boxed_state, s, len, i) => match boxed_state.as_ref() {
+                &Done => {
+                    *self = StringWaitingNextChar(s, len, i + 1);
+                    Some(Sadd)
+                }
+                _ => {
+                    let insn = boxed_state.transition();
+                    *self = StringPushingChar(boxed_state, s, len, i);
                     insn
                 }
             },
@@ -241,6 +284,16 @@ mod test {
         assert_identical(Float(1.0));
         assert_identical(Float(123.45e-67));
         assert_identical(Float(8.9102e34));
+    }
+
+    #[test]
+    fn serializer_string() {
+        assert_identical(String(Vec::new()));
+        assert_identical(String(b"a".to_vec()));
+        assert_identical(String(b"ab".to_vec()));
+        assert_identical(String(
+            b"qawsedrftgyhujikolp;zasxdcfvgbhnjmk,l.;qaswderftgyhujikolp;".to_vec(),
+        ));
     }
 
     /*
