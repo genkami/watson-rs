@@ -24,72 +24,61 @@ pub struct Lexer<R: io::Read> {
     column: usize,
 }
 
-/// A builder for `Lexer`.
-pub struct Builder {
-    initial_mode: Mode,
-    file_path: Option<Rc<path::Path>>,
+/// Config configures a `Lexer`.
+pub struct Config {
+    // Initial mode of a `Lexer` (defaults to `A` by the specificaton).
+    pub initial_mode: Mode,
+
+    // File path to display (not used to open a file or something).
+    pub file_path: Option<Rc<path::Path>>,
 }
 
-impl Builder {
-    /// Returns a new `Builder`.
-    pub fn new() -> Self {
-        Builder {
+impl Default for Config {
+    fn default() -> Config {
+        Config {
             initial_mode: Mode::A,
             file_path: None,
         }
     }
+}
 
-    /// Sets an initial `Mode`.
-    pub fn initial_mode(mut self, mode: Mode) -> Self {
-        self.initial_mode = mode;
-        self
-    }
-
-    /// Sets a file path to display.
-    pub fn file_path(mut self, path: &path::Path) -> Self {
-        self.file_path = Some(path.to_path_buf().into());
-        self
-    }
-
-    /// Builds a new `Lexer` that reads from `reader`.
-    pub fn build<R: io::Read>(mut self, reader: R) -> Lexer<R> {
-        let mode = self.initial_mode;
-        let path = self.file_path.take();
-        self.build_internal(reader, path, mode)
-    }
-
+impl Lexer<fs::File> {
     /// Opens a file and builds a `Lexer` that reads from the given file.
-    pub fn open(mut self, path: path::PathBuf) -> Result<Lexer<fs::File>> {
-        let file = fs::File::open(&path).into_watson_result(|| Location::unknown())?;
-        let path_to_display = self
-            .file_path
-            .take()
-            .or_else(|| Some(path.to_path_buf().into()));
-        let mode = self.initial_mode;
-        Ok(self.build_internal(file, path_to_display, mode))
+    pub fn open(path: &path::Path) -> Result<Self> {
+        Lexer::open_with_config(path, Config::default())
     }
 
-    fn build_internal<R: io::Read>(
-        self,
-        reader: R,
-        path: Option<Rc<path::Path>>,
-        mode: Mode,
-    ) -> Lexer<R> {
+    /// Same as `open` but in a configurable way.
+    pub fn open_with_config(path: &path::Path, mut conf: Config) -> Result<Self> {
+        let file = fs::File::open(&path).into_watson_result(|| Location::unknown())?;
+        if conf.file_path.is_none() {
+            conf.file_path = Some(path.to_path_buf().into());
+        }
+        Ok(Lexer::new_with_config(file, conf))
+    }
+}
+
+impl<R: io::Read> Lexer<R> {
+    /// Returns a new `Lexer` that reads from the given reader.
+    pub fn new(reader: R) -> Self {
+        Lexer::new_with_config(reader, Config::default())
+    }
+
+    /// Same as `new` but in a configurable way.
+    pub fn new_with_config(reader: R, conf: Config) -> Self {
         Lexer {
             reader: reader,
             buf: vec![0; BUF_SIZE],
             filled: 0,
             current: 0,
-            mode: mode,
+            mode: conf.initial_mode,
             last_read_ascii: 0,
-            file_path: path,
+            file_path: conf.file_path,
             line: 1,
             column: 0,
         }
     }
-}
 
-impl<R: io::Read> Lexer<R> {
     /// Returns a next token if exists.
     pub fn next_token(&mut self) -> Result<Token> {
         let token: Token;
@@ -169,9 +158,9 @@ mod test {
     use super::*;
 
     #[test]
-    fn builder_initial_mode_defaults_to_a() {
+    fn lexer_new_initial_mode_defaults_to_a() {
         let asciis = b"Bubba".to_vec();
-        let mut lexer = Builder::new().build(&asciis[..]);
+        let mut lexer = Lexer::new(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -187,9 +176,11 @@ mod test {
     }
 
     #[test]
-    fn builder_initial_mode_can_be_overridden() {
+    fn lexer_new_initial_mode_can_be_overridden() {
         let asciis = b"Shaak".to_vec();
-        let mut lexer = Builder::new().initial_mode(Mode::S).build(&asciis[..]);
+        let mut conf = Config::default();
+        conf.initial_mode = Mode::S;
+        let mut lexer = Lexer::new_with_config(&asciis[..], conf);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -205,9 +196,9 @@ mod test {
     }
 
     #[test]
-    fn builder_file_path_defaults_to_none() {
+    fn lexer_new_file_path_defaults_to_none() {
         let asciis = b"Bubba".to_vec();
-        let mut lexer = Builder::new().build(&asciis[..]);
+        let mut lexer = Lexer::new(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -223,10 +214,12 @@ mod test {
     }
 
     #[test]
-    fn builder_file_path_can_be_overridden() {
+    fn lexer_file_path_can_be_overridden() {
         let asciis = b"Bubba".to_vec();
         let path = path::Path::new("test.watson");
-        let mut lexer = Builder::new().file_path(path).build(&asciis[..]);
+        let mut conf = Config::default();
+        conf.file_path = Some(path.to_path_buf().into());
+        let mut lexer = Lexer::new_with_config(&asciis[..], conf);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -242,7 +235,7 @@ mod test {
     }
 
     #[test]
-    fn builder_open_opens_a_file() -> Result<()> {
+    fn lexer_open_opens_a_file() -> Result<()> {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
@@ -252,7 +245,7 @@ mod test {
             .into_watson_result(|| Location::unknown())?;
         let path = tempfile.into_temp_path();
 
-        let mut lexer = Builder::new().open(path.to_path_buf())?;
+        let mut lexer = Lexer::open(&path)?;
         assert_eq!(
             lexer.next_token()?,
             Token {
@@ -269,7 +262,7 @@ mod test {
     }
 
     #[test]
-    fn builder_open_path_can_be_overridden() -> Result<()> {
+    fn lexer_open_path_can_be_overridden() -> Result<()> {
         use std::io::Write;
         use tempfile::NamedTempFile;
 
@@ -280,9 +273,9 @@ mod test {
         let path = tempfile.into_temp_path();
         let path_to_display = path::Path::new("anothername.watson");
 
-        let mut lexer = Builder::new()
-            .file_path(path_to_display)
-            .open(path.to_path_buf())?;
+        let mut conf = Config::default();
+        conf.file_path = Some(path_to_display.to_path_buf().into());
+        let mut lexer = Lexer::open_with_config(&path, conf)?;
         assert_eq!(
             lexer.next_token()?,
             Token {
@@ -301,7 +294,7 @@ mod test {
     #[test]
     fn lexer_advances_column_and_line() {
         let asciis = b"Bub\nba".to_vec();
-        let mut lexer = Builder::new().build(&asciis[..]);
+        let mut lexer = Lexer::new(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
@@ -369,7 +362,7 @@ mod test {
     #[test]
     fn lexer_changes_mode() {
         let asciis = b"Bu?Sh$B".to_vec();
-        let mut lexer = Builder::new().build(&asciis[..]);
+        let mut lexer = Lexer::new(&asciis[..]);
         assert_eq!(
             lexer.next_token().unwrap(),
             Token {
