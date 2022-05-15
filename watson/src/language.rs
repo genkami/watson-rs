@@ -128,19 +128,6 @@ impl IsValue for bool {
     }
 }
 
-impl IsValue for () {
-    fn from_value(v: Value) -> Option<()> {
-        match v {
-            Nil => Some(()),
-            _ => None,
-        }
-    }
-
-    fn into_value(self) -> Value {
-        Nil
-    }
-}
-
 /// A type corresponding to WATSON Object.
 pub type Map = std::collections::HashMap<Vec<u8>, Value>;
 
