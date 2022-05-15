@@ -30,6 +30,7 @@ impl Serialize for Value {
     {
         match &self.0 {
             &Int(n) => serializer.serialize_i64(n),
+            &Uint(n) => serializer.serialize_u64(n),
             _ => todo!(),
         }
     }
@@ -59,6 +60,13 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         Ok(Int(v).into())
     }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(Uint(v).into())
+    }
 }
 
 #[cfg(test)]
@@ -69,8 +77,19 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_ser_de_int() {
+    fn ser_de_int() {
         assert_tokens(&Value(Int(0)), &[Token::I64(0)]);
         assert_tokens(&Value(Int(123)), &[Token::I64(123)]);
+        assert_tokens(&Value(Int(-123)), &[Token::I64(-123)]);
+    }
+
+    #[test]
+    fn ser_de_uint() {
+        assert_tokens(&Value(Uint(0)), &[Token::U64(0)]);
+        assert_tokens(&Value(Uint(123)), &[Token::U64(123)]);
+        assert_tokens(
+            &Value(Uint(0xdead_beef_fefe_aaaa)),
+            &[Token::U64(0xdead_beef_fefe_aaaa)],
+        );
     }
 }
