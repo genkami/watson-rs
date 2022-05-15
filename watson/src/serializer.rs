@@ -1,11 +1,13 @@
 use std::mem;
 
-use crate::language::{Insn, Value};
+use crate::language::{Insn, Map, Value};
 use Insn::*;
 use Value::*;
 
+type MapIter = std::collections::hash_map::IntoIter<Vec<u8>, Value>;
+
 /// A state of a `Serializer`.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Debug)]
 enum State {
     //                                                       (n!=0 && n%2==0/None)---> IntWaitingNextBit(n>>1, shamt=shamt+1)
     //                                                                 |
@@ -45,18 +47,47 @@ enum State {
     //         |
     //      (*/Snew)
     //         |
+    //         v
     //     StringWaitingNextChar(s, len=len(s), i=0) ---(len<=i/None)---> Done
     //         |
     //      (i<len/None)
     //         |
+    //         v
     //     StringPushingChar(IntInitial(s[i] as u64), s, len, i)
     //         |
     //       (...)
     //         |
+    //         v
     //     StringPushingChar(Done, s, len, i) ---(*/Sadd)---> StringWaitingNextChar(s, len, i=i+1)
     StringInitial(Vec<u8>),
     StringWaitingNextChar(Vec<u8>, usize, usize),
     StringPushingChar(Box<State>, Vec<u8>, usize, usize),
+
+    // (*) ObjectInitial(obj)
+    //            |
+    //          (*/Onew)
+    //            |
+    //            v
+    //     ObjectWaitingNextItem(it=obj.into_iter()) ---(it.next()==None/None)---> Done
+    //            |
+    //     (it.next()==Some(k, v)/None)
+    //            |
+    //            v
+    //     ObjectPushingKey(StringInitial(k), v, it) ---(...)---> ObjectPushingKey(Done, v, it)
+    //                                                                      |
+    //            +-----------------------(*/None)--------------------------+
+    //            |
+    //            v
+    //     ObjectPushingValue(State::new(v), it) ---(...)---> ObjectPushingValue(Done, it)
+    //                                                                      |
+    //            +-----------------------(*/None)--------------------------+
+    //            |
+    //            v
+    //     ObjectWaitingNextItem(it)
+    ObjectInitial(Map),
+    ObjectWaitingNextItem(MapIter),
+    ObjectPushingKey(Box<State>, Value, MapIter),
+    ObjectPushingValue(Box<State>, MapIter),
 
     // Done ---(*/None)---> Done
     Done,
@@ -70,6 +101,7 @@ impl State {
             Uint(u) => State::UintInitial(u),
             Float(f) => State::FloatInitial(f),
             String(s) => State::StringInitial(s),
+            Object(map) => State::ObjectInitial(map),
             _ => todo!(),
         }
     }
@@ -180,6 +212,42 @@ impl State {
                     insn
                 }
             },
+            ObjectInitial(map) => {
+                *self = ObjectWaitingNextItem(map.into_iter());
+                Some(Onew)
+            }
+            ObjectWaitingNextItem(mut it) => match it.next() {
+                None => {
+                    *self = Done;
+                    None
+                }
+                Some((k, v)) => {
+                    *self = ObjectPushingKey(Box::new(StringInitial(k)), v, it);
+                    None
+                }
+            },
+            ObjectPushingKey(mut boxed_state, v, it) => match boxed_state.as_ref() {
+                &Done => {
+                    *self = ObjectPushingValue(Box::new(State::new(v)), it);
+                    None
+                }
+                _ => {
+                    let insn = boxed_state.transition();
+                    *self = ObjectPushingKey(boxed_state, v, it);
+                    insn
+                }
+            },
+            ObjectPushingValue(mut boxed_state, it) => match boxed_state.as_ref() {
+                &Done => {
+                    *self = ObjectWaitingNextItem(it);
+                    Some(Oadd)
+                }
+                _ => {
+                    let insn = boxed_state.transition();
+                    *self = ObjectPushingValue(boxed_state, it);
+                    insn
+                }
+            },
             Done => None,
         }
     }
@@ -222,6 +290,7 @@ impl Serializer {
     }
 
     /// Returns an iterator over the instructions.
+    /// TODO: make this IntoIterator
     pub fn into_iter(self) -> IntoIter {
         IntoIter(self)
     }
@@ -293,6 +362,38 @@ mod test {
         assert_identical(String(b"ab".to_vec()));
         assert_identical(String(
             b"qawsedrftgyhujikolp;zasxdcfvgbhnjmk,l.;qaswderftgyhujikolp;".to_vec(),
+        ));
+    }
+
+    #[test]
+    fn serializer_object() {
+        assert_identical(Object(Map::new()));
+        assert_identical(Object(
+            vec![(b"key".to_vec(), Int(123))].into_iter().collect(),
+        ));
+        assert_identical(Object(
+            vec![
+                (b"key".to_vec(), Int(123)),
+                (b"another_key".to_vec(), Float(1.23)),
+            ]
+            .into_iter()
+            .collect(),
+        ));
+        assert_identical(Object(
+            vec![
+                (b"key".to_vec(), Int(123)),
+                (b"another_key".to_vec(), Float(1.23)),
+                (
+                    b"nested_object".to_vec(),
+                    Object(
+                        vec![(b"nested_key".to_vec(), String(b"value".to_vec()))]
+                            .into_iter()
+                            .collect(),
+                    ),
+                ),
+            ]
+            .into_iter()
+            .collect(),
         ));
     }
 
