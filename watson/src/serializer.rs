@@ -118,6 +118,20 @@ enum State {
     ArrayWaitingNextItem(ArrayIter),
     ArrayPushingElem(Box<State>, ArrayIter),
 
+    // (*) BoolInitial(b)
+    //         |
+    //       (*/Bnew)
+    //         |
+    //         v
+    //     BoolAllocated(b) ---(b==false/None)---> Done
+    //         |
+    //       (b==true/Bneg)---> Done
+    BoolInitial(bool),
+    BoolAllocated(bool),
+
+    // (*) NilInitial ---(*/Nnew)---> Done
+    NilInitial,
+
     // Done ---(*/None)---> Done
     Done,
 }
@@ -132,7 +146,8 @@ impl State {
             String(s) => State::StringInitial(s),
             Object(map) => State::ObjectInitial(map),
             Array(arr) => State::ArrayInitial(arr),
-            _ => todo!(),
+            Bool(b) => State::BoolInitial(b),
+            Nil => State::NilInitial,
         }
     }
 
@@ -303,6 +318,22 @@ impl State {
                     insn
                 }
             },
+            BoolInitial(b) => {
+                *self = BoolAllocated(b);
+                Some(Bnew)
+            }
+            BoolAllocated(b) => {
+                *self = Done;
+                if b {
+                    Some(Bneg)
+                } else {
+                    None
+                }
+            }
+            NilInitial => {
+                *self = Done;
+                Some(Nnew)
+            }
             Done => None,
         }
     }
@@ -462,6 +493,17 @@ mod test {
             String(b"2".to_vec()),
             Array(vec![Uint(3), String(b"nested".to_vec())]),
         ]));
+    }
+
+    #[test]
+    fn serializer_bool() {
+        assert_identical(Bool(false));
+        assert_identical(Bool(true));
+    }
+
+    #[test]
+    fn serializer_nil() {
+        assert_identical(Nil);
     }
 
     /*
