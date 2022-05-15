@@ -5,6 +5,7 @@ use Insn::*;
 use Value::*;
 
 type MapIter = std::collections::hash_map::IntoIter<Vec<u8>, Value>;
+type ArrayIter = std::vec::IntoIter<Value>;
 
 /// A state of a `Serializer`.
 #[derive(Debug)]
@@ -88,7 +89,7 @@ enum State {
     //            v
     //     ObjectPushingValue(State::new(v), it) ---(...)---> ObjectPushingValue(Done, it)
     //                                                                      |
-    //            +-----------------------(*/None)--------------------------+
+    //            +-----------------------(*/Oadd)--------------------------+
     //            |
     //            v
     //     ObjectWaitingNextItem(it)
@@ -96,6 +97,26 @@ enum State {
     ObjectWaitingNextItem(MapIter),
     ObjectPushingKey(Box<State>, Value, MapIter),
     ObjectPushingValue(Box<State>, MapIter),
+
+    // (*) ArrayInitial(arr)
+    //           |
+    //         (*/Anew)
+    //           |
+    //           v
+    //     ArrayWaitingNextItem(it=arr.into_iter()) ---(it.next()==None/None)---> Done
+    //           |
+    //         (it.next()==Some(v)/None)
+    //           |
+    //           v
+    //     ArrayPushingElem(State::new(v), it) ---(...)---> ArrayPushingElem(Done, it)
+    //                                                                     |
+    //           +-----------------------(*/Aadd)--------------------------+
+    //           |
+    //           v
+    //     ArrayWaitingNextItem(it)
+    ArrayInitial(Vec<Value>),
+    ArrayWaitingNextItem(ArrayIter),
+    ArrayPushingElem(Box<State>, ArrayIter),
 
     // Done ---(*/None)---> Done
     Done,
@@ -110,6 +131,7 @@ impl State {
             Float(f) => State::FloatInitial(f),
             String(s) => State::StringInitial(s),
             Object(map) => State::ObjectInitial(map),
+            Array(arr) => State::ArrayInitial(arr),
             _ => todo!(),
         }
     }
@@ -253,6 +275,31 @@ impl State {
                 _ => {
                     let insn = boxed_state.transition();
                     *self = ObjectPushingValue(boxed_state, it);
+                    insn
+                }
+            },
+            ArrayInitial(arr) => {
+                *self = ArrayWaitingNextItem(arr.into_iter());
+                Some(Anew)
+            }
+            ArrayWaitingNextItem(mut it) => match it.next() {
+                None => {
+                    *self = Done;
+                    None
+                }
+                Some(v) => {
+                    *self = ArrayPushingElem(Box::new(State::new(v)), it);
+                    None
+                }
+            },
+            ArrayPushingElem(mut boxed_state, it) => match boxed_state.as_ref() {
+                &Done => {
+                    *self = ArrayWaitingNextItem(it);
+                    Some(Aadd)
+                }
+                _ => {
+                    let insn = boxed_state.transition();
+                    *self = ArrayPushingElem(boxed_state, it);
                     insn
                 }
             },
@@ -403,6 +450,18 @@ mod test {
             .into_iter()
             .collect(),
         ));
+    }
+
+    #[test]
+    fn serializer_array() {
+        assert_identical(Array(Vec::new()));
+        assert_identical(Array(vec![Int(1)]));
+        assert_identical(Array(vec![Int(1), String(b"2".to_vec())]));
+        assert_identical(Array(vec![
+            Int(1),
+            String(b"2".to_vec()),
+            Array(vec![Uint(3), String(b"nested".to_vec())]),
+        ]));
     }
 
     /*
