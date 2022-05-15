@@ -17,23 +17,63 @@ pub enum Value {
 
 use Value::*;
 
+impl From<i64> for Value {
+    fn from(v: i64) -> Value {
+        Int(v)
+    }
+}
+
+impl From<u64> for Value {
+    fn from(v: u64) -> Value {
+        Uint(v)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(v: f64) -> Value {
+        Float(v)
+    }
+}
+
+impl From<Vec<u8>> for Value {
+    fn from(v: Vec<u8>) -> Value {
+        String(v)
+    }
+}
+
+impl From<Map> for Value {
+    fn from(v: Map) -> Value {
+        Object(v)
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(v: Vec<Value>) -> Value {
+        Array(v)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(v: bool) -> Value {
+        Bool(v)
+    }
+}
+
 /// A type that can be converted directly from and to `Value`.
 /// This is different from From<Value> and Into<Value> in that the values of these these types are "identical" to `Value`.
-pub trait IsValue: Sized {
+pub trait IsValue: Into<Value> {
     /// Converts a `Value` into its expected type.
     fn from_value(v: Value) -> Option<Self>;
 
     /// Converts self into a `Value`.
-    fn into_value(self) -> Value;
+    fn into_value(self) -> Value {
+        self.into()
+    }
 }
 
 impl IsValue for Value {
     fn from_value(v: Value) -> Option<Value> {
         Some(v)
-    }
-
-    fn into_value(self) -> Value {
-        self
     }
 }
 
@@ -44,10 +84,6 @@ impl IsValue for i64 {
             _ => None,
         }
     }
-
-    fn into_value(self) -> Value {
-        Int(self)
-    }
 }
 
 impl IsValue for u64 {
@@ -56,10 +92,6 @@ impl IsValue for u64 {
             Uint(u) => Some(u),
             _ => None,
         }
-    }
-
-    fn into_value(self) -> Value {
-        Uint(self)
     }
 }
 
@@ -70,10 +102,6 @@ impl IsValue for f64 {
             _ => None,
         }
     }
-
-    fn into_value(self) -> Value {
-        Float(self)
-    }
 }
 
 impl IsValue for Vec<u8> {
@@ -82,10 +110,6 @@ impl IsValue for Vec<u8> {
             String(s) => Some(s),
             _ => None,
         }
-    }
-
-    fn into_value(self) -> Value {
-        String(self)
     }
 }
 
@@ -96,10 +120,6 @@ impl IsValue for Map {
             _ => None,
         }
     }
-
-    fn into_value(self) -> Value {
-        Object(self)
-    }
 }
 
 impl IsValue for Vec<Value> {
@@ -109,10 +129,6 @@ impl IsValue for Vec<Value> {
             _ => None,
         }
     }
-
-    fn into_value(self) -> Value {
-        Array(self)
-    }
 }
 
 impl IsValue for bool {
@@ -121,10 +137,6 @@ impl IsValue for bool {
             Bool(b) => Some(b),
             _ => None,
         }
-    }
-
-    fn into_value(self) -> Value {
-        Bool(self)
     }
 }
 
