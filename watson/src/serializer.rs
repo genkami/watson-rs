@@ -374,10 +374,13 @@ impl Serializer {
             }
         }
     }
+}
 
-    /// Returns an iterator over the instructions.
-    /// TODO: make this IntoIterator
-    pub fn into_iter(self) -> IntoIter {
+impl IntoIterator for Serializer {
+    type Item = Insn;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> IntoIter {
         IntoIter(self)
     }
 }
