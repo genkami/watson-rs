@@ -1,5 +1,8 @@
 #[macro_export]
 macro_rules! watson {
+    (nil) => {
+        $crate::language::Value::Nil
+    };
     ( $other:expr ) => {
         $crate::language::Value::from($other)
     };
@@ -83,5 +86,10 @@ mod test {
     fn test_watson_bool() {
         assert_eq!(watson!(true), Bool(true));
         assert_eq!(watson!(false), Bool(false));
+    }
+
+    #[test]
+    fn test_watson_nil() {
+        assert_eq!(watson!(nil), Nil);
     }
 }
