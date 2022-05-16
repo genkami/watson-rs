@@ -172,6 +172,12 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl From<std::string::String> for Value {
+    fn from(v: std::string::String) -> Value {
+        String(v.into_bytes())
+    }
+}
+
 impl From<Map> for Value {
     fn from(v: Map) -> Value {
         Object(v)

@@ -74,6 +74,12 @@ mod test {
     }
 
     #[test]
+    fn test_watson_string() {
+        assert_eq!(watson!(b"foobar".to_vec()), String(b"foobar".to_vec()));
+        assert_eq!(watson!("quux".to_owned()), String(b"quux".to_vec()));
+    }
+
+    #[test]
     fn test_watson_bool() {
         assert_eq!(watson!(true), Bool(true));
         assert_eq!(watson!(false), Bool(false));
