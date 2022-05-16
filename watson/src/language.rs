@@ -280,6 +280,36 @@ impl IsValue for bool {
     }
 }
 
+/// A type that can be converted to `ObjectKey`.
+pub trait ToObjectKey {
+    /// Converts `self` to `ObjectKey`.
+    fn to_object_key(&self) -> ObjectKey;
+}
+
+impl ToObjectKey for ObjectKey {
+    fn to_object_key(&self) -> ObjectKey {
+        self.clone()
+    }
+}
+
+impl ToObjectKey for &ObjectKey {
+    fn to_object_key(&self) -> ObjectKey {
+        self.to_vec()
+    }
+}
+
+impl ToObjectKey for std::string::String {
+    fn to_object_key(&self) -> ObjectKey {
+        self.to_owned().into_bytes()
+    }
+}
+
+impl ToObjectKey for &str {
+    fn to_object_key(&self) -> ObjectKey {
+        self.as_bytes().to_vec()
+    }
+}
+
 mod conv {
     use once_cell::sync::Lazy;
     use std::collections::HashMap;
