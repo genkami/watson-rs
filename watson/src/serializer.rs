@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::language::{Insn, Map, Value};
+use crate::language::{Insn, Map, ObjectKey, Value};
 use Insn::*;
 use Value::*;
 
@@ -87,7 +87,7 @@ impl<W: WriteInsn> Serializer<W> {
         }
     }
 
-    pub fn serialize_string(&mut self, s: &Vec<u8>) -> Result<()> {
+    pub fn serialize_string(&mut self, s: &ObjectKey) -> Result<()> {
         self.write(Snew)?;
         for c in s {
             self.serialize_int(*c as i64)?;

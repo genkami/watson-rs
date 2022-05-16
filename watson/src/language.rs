@@ -8,7 +8,7 @@ pub enum Value {
     Int(i64),
     Uint(u64),
     Float(f64),
-    String(Vec<u8>),
+    String(ObjectKey),
     Object(Map),
     Array(Vec<Value>),
     Bool(bool),
@@ -18,7 +18,10 @@ pub enum Value {
 use Value::*;
 
 /// A type corresponding to WATSON Object.
-pub type Map = std::collections::HashMap<Vec<u8>, Value>;
+pub type Map = std::collections::HashMap<ObjectKey, Value>;
+
+/// An object key.
+pub type ObjectKey = Vec<u8>;
 
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -166,8 +169,8 @@ macro_rules! impl_from_float_for_value {
 
 impl_from_float_for_value!(f32, f64);
 
-impl From<Vec<u8>> for Value {
-    fn from(v: Vec<u8>) -> Value {
+impl From<ObjectKey> for Value {
+    fn from(v: ObjectKey) -> Value {
         String(v)
     }
 }
@@ -241,8 +244,8 @@ impl IsValue for f64 {
     }
 }
 
-impl IsValue for Vec<u8> {
-    fn from_value(v: Value) -> Option<Vec<u8>> {
+impl IsValue for ObjectKey {
+    fn from_value(v: Value) -> Option<ObjectKey> {
         match v {
             String(s) => Some(s),
             _ => None,

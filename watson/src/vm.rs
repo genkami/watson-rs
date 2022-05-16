@@ -1,5 +1,5 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::language::{Insn, IsValue, Map, Token, Value};
+use crate::language::{Insn, IsValue, Map, ObjectKey, Token, Value};
 use Insn::*;
 
 /// A stack of the WATSON VM.
@@ -152,12 +152,12 @@ impl VM {
             Fnan => push(&mut ops, f64::NAN),
             Fneg => ops.apply1(|x: f64| -x),
             Snew => push(&mut ops, Vec::<u8>::new()),
-            Sadd => ops.apply2(|x: i64, mut s: Vec<u8>| {
+            Sadd => ops.apply2(|x: i64, mut s: ObjectKey| {
                 s.push(x as u8);
                 s
             }),
             Onew => push(&mut ops, Map::new()),
-            Oadd => ops.apply3(|v: Value, k: Vec<u8>, mut o: Map| {
+            Oadd => ops.apply3(|v: Value, k: ObjectKey, mut o: Map| {
                 o.insert(k, v);
                 o
             }),

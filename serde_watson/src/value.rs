@@ -199,7 +199,7 @@ impl<'a> Serialize for ValueRef<'a> {
     }
 }
 
-struct ObjectKeyRef<'a>(&'a Vec<u8>);
+struct ObjectKeyRef<'a>(&'a language::ObjectKey);
 
 impl<'a> Serialize for ObjectKeyRef<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -210,10 +210,10 @@ impl<'a> Serialize for ObjectKeyRef<'a> {
     }
 }
 
-struct ObjectKey(Vec<u8>);
+struct ObjectKey(language::ObjectKey);
 
 impl ObjectKey {
-    fn into_bytes(self) -> Vec<u8> {
+    fn into_bytes(self) -> language::ObjectKey {
         self.0
     }
 }
