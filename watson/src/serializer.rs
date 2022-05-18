@@ -34,6 +34,11 @@ impl<W> Serializer<W> {
     pub fn new(writer: W) -> Self {
         Serializer { writer: writer }
     }
+
+    /// Unwraps the inner value from this `Serializer`.
+    pub fn into_inner(self) -> W {
+        self.writer
+    }
 }
 
 impl<W: WriteInsn> Serializer<W> {

@@ -45,6 +45,11 @@ impl<W> Serializer<W> {
             inner: serializer::Serializer::new(writer),
         }
     }
+
+    /// Unwraps the inner value from this `Serializer`.
+    pub fn into_inner(self) -> W {
+        self.inner.into_inner()
+    }
 }
 
 impl<'a, W> ser::Serializer for &'a mut Serializer<W>
