@@ -121,15 +121,20 @@ where
         Ok(())
     }
 
-    fn serialize_char(self, _v: char) -> Result<()> {
-        todo!()
+    fn serialize_char(self, v: char) -> Result<()> {
+        let mut buf = [0; 4];
+        self.serialize_str(v.encode_utf8(&mut buf))
     }
-    fn serialize_str(self, _v: &str) -> Result<()> {
-        todo!()
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        self.serialize_bytes(v.as_bytes())
     }
-    fn serialize_bytes(self, _v: &[u8]) -> Result<()> {
-        todo!()
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        self.inner.serialize(&Value::String(v.to_vec()))?;
+        Ok(())
     }
+
     fn serialize_none(self) -> Result<()> {
         todo!()
     }
@@ -163,13 +168,13 @@ where
         todo!()
     }
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self> {
-        todo!()
+        todo!("seq")
     }
     fn serialize_tuple(self, _len: usize) -> Result<Self> {
-        todo!()
+        todo!("tuple")
     }
     fn serialize_tuple_struct(self, _name: &'static str, _len: usize) -> Result<Self> {
-        todo!()
+        todo!("tuple_struct")
     }
     fn serialize_tuple_variant(
         self,
@@ -328,6 +333,8 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde::ser::Serializer as SerdeSerializer;
+    use watson::ToBytes;
     use watson::Value::*;
 
     #[test]
@@ -426,6 +433,27 @@ mod test {
         assert_encodes(-1.25e-67_f64, Float(-1.25e-67));
     }
 
+    #[test]
+    fn serialize_char() {
+        assert_encodes('a', String(b"a".to_vec()));
+        assert_encodes('あ', String("あ".to_bytes()));
+    }
+
+    #[test]
+    fn serialize_str() {
+        assert_encodes("", String("".to_bytes()));
+        assert_encodes("x", String("x".to_bytes()));
+        assert_encodes("こんにちは世界", String("こんにちは世界".to_bytes()));
+        assert_encodes("Привет, мир!", String("Привет, мир!".to_bytes()));
+    }
+
+    #[test]
+    fn serialize_bytes() {
+        assert_encodes_to_bytes(b"", String("".to_bytes()));
+        assert_encodes_to_bytes(b"1", String("1".to_bytes()));
+        assert_encodes_to_bytes(b"Hello, world!", String("Hello, world!".to_bytes()));
+    }
+
     /*
      * Helper functions
      */
@@ -453,6 +481,13 @@ mod test {
         }
     }
 
+    fn assert_encodes_to_bytes(s: &[u8], expected: watson::Value) {
+        let mut buf = vec![];
+        let mut ser = Serializer::new(&mut buf);
+        ser.serialize_bytes(s).expect("serialization error");
+        assert_eq!(decode(&mut buf.into_iter()), expected);
+    }
+
     fn encode_then_decode<T>(x: T) -> watson::Value
     where
         T: ser::Serialize,
@@ -462,8 +497,15 @@ mod test {
 
         x.serialize(&mut ser).expect("selialization error");
 
+        decode(&mut buf.into_iter())
+    }
+
+    fn decode<It>(it: &mut It) -> watson::Value
+    where
+        It: Iterator<Item = watson::Insn>,
+    {
         let mut vm = watson::VM::new();
-        for insn in buf.into_iter() {
+        for insn in it {
             let token = watson::Token {
                 insn: insn,
                 location: watson::Location::unknown(),
