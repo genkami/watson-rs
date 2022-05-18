@@ -66,20 +66,26 @@ where
         Ok(())
     }
 
-    fn serialize_i8(self, _v: i8) -> Result<()> {
-        todo!()
+    fn serialize_i8(self, v: i8) -> Result<()> {
+        self.inner.serialize(&Value::Int(v as i64))?;
+        Ok(())
     }
 
-    fn serialize_i16(self, _v: i16) -> Result<()> {
-        todo!()
+    fn serialize_i16(self, v: i16) -> Result<()> {
+        self.inner.serialize(&Value::Int(v as i64))?;
+        Ok(())
     }
 
-    fn serialize_i32(self, _v: i32) -> Result<()> {
-        todo!()
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        self.inner.serialize(&Value::Int(v as i64))?;
+        Ok(())
     }
-    fn serialize_i64(self, _v: i64) -> Result<()> {
-        todo!()
+
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        self.inner.serialize(&Value::Int(v as i64))?;
+        Ok(())
     }
+
     fn serialize_u8(self, _v: u8) -> Result<()> {
         todo!()
     }
@@ -308,9 +314,45 @@ mod test {
     use watson::Value::*;
 
     #[test]
-    fn ser_bool() {
+    fn serialize_bool() {
         assert_encodes(true, Bool(true));
         assert_encodes(false, Bool(false));
+    }
+
+    #[test]
+    fn serialize_i8() {
+        assert_encodes(0_i8, Int(0));
+        assert_encodes(1_i8, Int(1));
+        assert_encodes(127_i8, Int(127));
+        assert_encodes(-1_i8, Int(-1));
+        assert_encodes(-128_i8, Int(-128));
+    }
+
+    #[test]
+    fn serialize_i16() {
+        assert_encodes(0_i16, Int(0));
+        assert_encodes(1_i16, Int(1));
+        assert_encodes(32767_i16, Int(32767));
+        assert_encodes(-1_i16, Int(-1));
+        assert_encodes(-32768_i16, Int(-32768));
+    }
+
+    #[test]
+    fn serialize_i32() {
+        assert_encodes(0_i32, Int(0));
+        assert_encodes(1_i32, Int(1));
+        assert_encodes(2147483647_i32, Int(2147483647));
+        assert_encodes(-1_i32, Int(-1));
+        assert_encodes(-2147483647_i32, Int(-2147483647));
+    }
+
+    #[test]
+    fn serialize_i64() {
+        assert_encodes(0_i64, Int(0));
+        assert_encodes(1_i64, Int(1));
+        assert_encodes(9223372036854775807_i64, Int(9223372036854775807_i64));
+        assert_encodes(-1_i64, Int(-1));
+        assert_encodes(-9223372036854775808_i64, Int(-9223372036854775808_i64));
     }
 
     /*
@@ -322,8 +364,6 @@ mod test {
         T: fmt::Debug + ser::Serialize,
     {
         let mut buf = vec![];
-        // TODO: impl WriteInsn for &'a mut Unlexer;
-        // TODO: impl Serialize for &'a mut Serializer;
         let mut ser = Serializer::new(&mut buf);
 
         x.serialize(&mut ser).expect("selialization error");
