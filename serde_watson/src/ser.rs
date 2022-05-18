@@ -111,12 +111,16 @@ where
         Ok(())
     }
 
-    fn serialize_f32(self, _v: f32) -> Result<()> {
-        todo!()
+    fn serialize_f32(self, v: f32) -> Result<()> {
+        self.inner.serialize(&Value::Float(v as f64))?;
+        Ok(())
     }
-    fn serialize_f64(self, _v: f64) -> Result<()> {
-        todo!()
+
+    fn serialize_f64(self, v: f64) -> Result<()> {
+        self.inner.serialize(&Value::Float(v as f64))?;
+        Ok(())
     }
+
     fn serialize_char(self, _v: char) -> Result<()> {
         todo!()
     }
@@ -396,6 +400,32 @@ mod test {
         assert_encodes(18446744073709551615_u64, Uint(18446744073709551615));
     }
 
+    #[test]
+    fn serialize_f32() {
+        assert_encodes_to_float_satisfying(f32::NAN, |f| f.is_nan());
+        assert_encodes_to_float_satisfying(f32::INFINITY, |f| {
+            f.is_sign_positive() && f.is_infinite()
+        });
+        assert_encodes_to_float_satisfying(f32::NEG_INFINITY, |f| {
+            f.is_sign_negative() && f.is_infinite()
+        });
+        assert_encodes(1.25_f32, Float(1.25));
+        assert_encodes(-1.25_f32, Float(-1.25));
+    }
+
+    #[test]
+    fn serialize_f64() {
+        assert_encodes_to_float_satisfying(f64::NAN, |f| f.is_nan());
+        assert_encodes_to_float_satisfying(f64::INFINITY, |f| {
+            f.is_sign_positive() && f.is_infinite()
+        });
+        assert_encodes_to_float_satisfying(f64::NEG_INFINITY, |f| {
+            f.is_sign_negative() && f.is_infinite()
+        });
+        assert_encodes(1.25e67_f64, Float(1.25e67));
+        assert_encodes(-1.25e-67_f64, Float(-1.25e-67));
+    }
+
     /*
      * Helper functions
      */
@@ -403,6 +433,29 @@ mod test {
     fn assert_encodes<T>(x: T, expected: watson::Value)
     where
         T: fmt::Debug + ser::Serialize,
+    {
+        let actual = encode_then_decode(x);
+        assert_eq!(actual, expected);
+    }
+
+    fn assert_encodes_to_float_satisfying<T, F>(x: T, pred: F)
+    where
+        T: fmt::Debug + ser::Serialize,
+        F: FnOnce(f64) -> bool,
+    {
+        match encode_then_decode(x) {
+            Float(f) => {
+                assert!(pred(f));
+            }
+            actual => {
+                panic!("expected float but got {:?}", actual);
+            }
+        }
+    }
+
+    fn encode_then_decode<T>(x: T) -> watson::Value
+    where
+        T: ser::Serialize,
     {
         let mut buf = vec![];
         let mut ser = Serializer::new(&mut buf);
@@ -417,7 +470,6 @@ mod test {
             };
             vm.execute(token).expect("execution error");
         }
-        let actual = vm.peek_top().expect("stack should not be empty");
-        assert_eq!(actual, &expected);
+        vm.peek_top().expect("stack should not be empty").clone()
     }
 }
