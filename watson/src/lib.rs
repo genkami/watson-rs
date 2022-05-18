@@ -4,3 +4,5 @@ pub mod lexer;
 pub mod serializer;
 pub mod unlexer;
 pub mod vm;
+
+pub use language::{Bytes, Map, Value};
