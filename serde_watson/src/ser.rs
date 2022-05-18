@@ -86,18 +86,26 @@ where
         Ok(())
     }
 
-    fn serialize_u8(self, _v: u8) -> Result<()> {
-        todo!()
+    fn serialize_u8(self, v: u8) -> Result<()> {
+        self.inner.serialize(&Value::Uint(v as u64))?;
+        Ok(())
     }
-    fn serialize_u16(self, _v: u16) -> Result<()> {
-        todo!()
+
+    fn serialize_u16(self, v: u16) -> Result<()> {
+        self.inner.serialize(&Value::Uint(v as u64))?;
+        Ok(())
     }
-    fn serialize_u32(self, _v: u32) -> Result<()> {
-        todo!()
+
+    fn serialize_u32(self, v: u32) -> Result<()> {
+        self.inner.serialize(&Value::Uint(v as u64))?;
+        Ok(())
     }
-    fn serialize_u64(self, _v: u64) -> Result<()> {
-        todo!()
+
+    fn serialize_u64(self, v: u64) -> Result<()> {
+        self.inner.serialize(&Value::Uint(v as u64))?;
+        Ok(())
     }
+
     fn serialize_f32(self, _v: f32) -> Result<()> {
         todo!()
     }
@@ -353,6 +361,34 @@ mod test {
         assert_encodes(9223372036854775807_i64, Int(9223372036854775807_i64));
         assert_encodes(-1_i64, Int(-1));
         assert_encodes(-9223372036854775808_i64, Int(-9223372036854775808_i64));
+    }
+
+    #[test]
+    fn serialize_u8() {
+        assert_encodes(0_u8, Uint(0));
+        assert_encodes(1_u8, Uint(1));
+        assert_encodes(255_u8, Uint(255));
+    }
+
+    #[test]
+    fn serialize_u16() {
+        assert_encodes(0_u16, Uint(0));
+        assert_encodes(1_u16, Uint(1));
+        assert_encodes(65535_u16, Uint(65535));
+    }
+
+    #[test]
+    fn serialize_u32() {
+        assert_encodes(0_u32, Uint(0));
+        assert_encodes(1_u32, Uint(1));
+        assert_encodes(4294967295_u32, Uint(4294967295));
+    }
+
+    #[test]
+    fn serialize_u64() {
+        assert_encodes(0_u64, Uint(0));
+        assert_encodes(1_u64, Uint(1));
+        assert_encodes(18446744073709551615_u64, Uint(18446744073709551615));
     }
 
     /*
