@@ -136,8 +136,10 @@ where
     }
 
     fn serialize_none(self) -> Result<()> {
-        todo!()
+        self.inner.serialize(&Value::Nil)?;
+        Ok(())
     }
+
     fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<()> {
         todo!()
     }
@@ -452,6 +454,14 @@ mod test {
         assert_encodes_to_bytes(b"", String("".to_bytes()));
         assert_encodes_to_bytes(b"1", String("1".to_bytes()));
         assert_encodes_to_bytes(b"Hello, world!", String("Hello, world!".to_bytes()));
+    }
+
+    #[test]
+    fn serialize_none() {
+        let mut buf = vec![];
+        let mut ser = Serializer::new(&mut buf);
+        ser.serialize_none().expect("serialization error");
+        assert_eq!(decode(&mut buf.into_iter()), Value::Nil);
     }
 
     /*
