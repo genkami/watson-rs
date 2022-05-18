@@ -112,7 +112,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         M: MapAccess<'de>,
     {
         let mut map = language::Map::with_capacity(access.size_hint().unwrap_or(0));
-        while let Some((key, value)) = access.next_entry::<ObjectKey, Value>()? {
+        while let Some((key, value)) = access.next_entry::<Bytes, Value>()? {
             map.insert(key.into_bytes(), value.into_watson());
         }
         Ok(Object(map).into())
@@ -182,7 +182,7 @@ impl<'a> Serialize for ValueRef<'a> {
             &Object(ref map) => {
                 let mut map_ser = serializer.serialize_map(Some(map.len()))?;
                 for (k, v) in map {
-                    map_ser.serialize_entry(&ObjectKeyRef(k), &ValueRef::new(v))?;
+                    map_ser.serialize_entry(&BytesRef(k), &ValueRef::new(v))?;
                 }
                 map_ser.end()
             }
@@ -199,9 +199,9 @@ impl<'a> Serialize for ValueRef<'a> {
     }
 }
 
-struct ObjectKeyRef<'a>(&'a language::ObjectKey);
+struct BytesRef<'a>(&'a language::Bytes);
 
-impl<'a> Serialize for ObjectKeyRef<'a> {
+impl<'a> Serialize for BytesRef<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -210,15 +210,15 @@ impl<'a> Serialize for ObjectKeyRef<'a> {
     }
 }
 
-struct ObjectKey(language::ObjectKey);
+struct Bytes(language::Bytes);
 
-impl ObjectKey {
-    fn into_bytes(self) -> language::ObjectKey {
+impl Bytes {
+    fn into_bytes(self) -> language::Bytes {
         self.0
     }
 }
 
-impl<'de> Deserialize<'de> for ObjectKey {
+impl<'de> Deserialize<'de> for Bytes {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -230,7 +230,7 @@ impl<'de> Deserialize<'de> for ObjectKey {
 struct BytesVisitor;
 
 impl<'de> Visitor<'de> for BytesVisitor {
-    type Value = ObjectKey;
+    type Value = Bytes;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("bytes")
@@ -254,14 +254,14 @@ impl<'de> Visitor<'de> for BytesVisitor {
     where
         E: de::Error,
     {
-        Ok(ObjectKey(v.to_vec()))
+        Ok(Bytes(v.to_vec()))
     }
 
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        Ok(ObjectKey(v))
+        Ok(Bytes(v))
     }
 }
 

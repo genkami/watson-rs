@@ -1,6 +1,12 @@
 use std::path;
 use std::rc::Rc;
 
+/// A byte array.
+pub type Bytes = Vec<u8>;
+
+/// A type corresponding to WATSON Object.
+pub type Map = std::collections::HashMap<Bytes, Value>;
+
 /// A value that is defined in WATSON specification.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 #[derive(PartialEq, Clone, Debug)]
@@ -8,7 +14,7 @@ pub enum Value {
     Int(i64),
     Uint(u64),
     Float(f64),
-    String(ObjectKey),
+    String(Bytes),
     Object(Map),
     Array(Vec<Value>),
     Bool(bool),
@@ -16,12 +22,6 @@ pub enum Value {
 }
 
 use Value::*;
-
-/// A type corresponding to WATSON Object.
-pub type Map = std::collections::HashMap<ObjectKey, Value>;
-
-/// An object key.
-pub type ObjectKey = Vec<u8>;
 
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -169,8 +169,8 @@ macro_rules! impl_from_float_for_value {
 
 impl_from_float_for_value!(f32, f64);
 
-impl From<ObjectKey> for Value {
-    fn from(v: ObjectKey) -> Value {
+impl From<Bytes> for Value {
+    fn from(v: Bytes) -> Value {
         String(v)
     }
 }
@@ -244,8 +244,8 @@ impl IsValue for f64 {
     }
 }
 
-impl IsValue for ObjectKey {
-    fn from_value(v: Value) -> Option<ObjectKey> {
+impl IsValue for Bytes {
+    fn from_value(v: Value) -> Option<Bytes> {
         match v {
             String(s) => Some(s),
             _ => None,
@@ -280,32 +280,32 @@ impl IsValue for bool {
     }
 }
 
-/// A type that can be converted to `ObjectKey`.
-pub trait ToObjectKey {
-    /// Converts `self` to `ObjectKey`.
-    fn to_object_key(&self) -> ObjectKey;
+/// A type that can be converted to `Bytes`.
+pub trait ToBytes {
+    /// Converts `self` to `Bytes`.
+    fn to_bytes(&self) -> Bytes;
 }
 
-impl ToObjectKey for ObjectKey {
-    fn to_object_key(&self) -> ObjectKey {
+impl ToBytes for Bytes {
+    fn to_bytes(&self) -> Bytes {
         self.clone()
     }
 }
 
-impl ToObjectKey for &ObjectKey {
-    fn to_object_key(&self) -> ObjectKey {
+impl ToBytes for &Bytes {
+    fn to_bytes(&self) -> Bytes {
         self.to_vec()
     }
 }
 
-impl ToObjectKey for std::string::String {
-    fn to_object_key(&self) -> ObjectKey {
+impl ToBytes for std::string::String {
+    fn to_bytes(&self) -> Bytes {
         self.to_owned().into_bytes()
     }
 }
 
-impl ToObjectKey for &str {
-    fn to_object_key(&self) -> ObjectKey {
+impl ToBytes for &str {
+    fn to_bytes(&self) -> Bytes {
         self.as_bytes().to_vec()
     }
 }
