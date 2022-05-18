@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::language::{Insn, Map, Bytes, Value};
+use crate::language::{Bytes, Insn, Map, Value};
 use Insn::*;
 use Value::*;
 
@@ -49,7 +49,7 @@ impl<W: WriteInsn> Serializer<W> {
         }
     }
 
-    pub fn serialize_int(&mut self, n: i64) -> Result<()> {
+    fn serialize_int(&mut self, n: i64) -> Result<()> {
         let mut n = n as u64;
         self.write(Inew)?;
         let mut shift: usize = 0;
@@ -67,12 +67,12 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    pub fn serialize_uint(&mut self, n: u64) -> Result<()> {
+    fn serialize_uint(&mut self, n: u64) -> Result<()> {
         self.serialize_int(n as i64)?;
         self.write(Itou)
     }
 
-    pub fn serialize_float(&mut self, f: f64) -> Result<()> {
+    fn serialize_float(&mut self, f: f64) -> Result<()> {
         if f.is_nan() {
             self.write(Fnan)
         } else if f.is_infinite() {
@@ -87,7 +87,7 @@ impl<W: WriteInsn> Serializer<W> {
         }
     }
 
-    pub fn serialize_string(&mut self, s: &Bytes) -> Result<()> {
+    fn serialize_string(&mut self, s: &Bytes) -> Result<()> {
         self.write(Snew)?;
         for c in s {
             self.serialize_int(*c as i64)?;
@@ -96,7 +96,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    pub fn serialize_object(&mut self, map: &Map) -> Result<()> {
+    fn serialize_object(&mut self, map: &Map) -> Result<()> {
         self.write(Onew)?;
         for (k, v) in map {
             self.serialize_string(k)?;
@@ -106,7 +106,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    pub fn serialize_array(&mut self, arr: &Vec<Value>) -> Result<()> {
+    fn serialize_array(&mut self, arr: &Vec<Value>) -> Result<()> {
         self.write(Anew)?;
         for i in arr {
             self.serialize(i)?;
@@ -115,7 +115,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    pub fn serialize_bool(&mut self, b: bool) -> Result<()> {
+    fn serialize_bool(&mut self, b: bool) -> Result<()> {
         self.write(Bnew)?;
         if b {
             self.write(Bneg)?;
@@ -123,7 +123,7 @@ impl<W: WriteInsn> Serializer<W> {
         Ok(())
     }
 
-    pub fn serialize_nil(&mut self) -> Result<()> {
+    fn serialize_nil(&mut self) -> Result<()> {
         self.write(Nnew)
     }
 
