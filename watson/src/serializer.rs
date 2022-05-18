@@ -25,16 +25,18 @@ impl<'a> WriteInsn for &'a mut Vec<Insn> {
 }
 
 /// Serializer converts `Value` into a sequence of `Insn`s.
-pub struct Serializer<W: WriteInsn> {
+pub struct Serializer<W> {
     writer: W,
 }
 
-impl<W: WriteInsn> Serializer<W> {
+impl<W> Serializer<W> {
     /// Returns a new `Serializer`.
     pub fn new(writer: W) -> Self {
         Serializer { writer: writer }
     }
+}
 
+impl<W: WriteInsn> Serializer<W> {
     /// Serializes a single `Value`.
     pub fn serialize(&mut self, v: &Value) -> Result<()> {
         match v {

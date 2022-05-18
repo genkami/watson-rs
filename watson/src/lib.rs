@@ -5,4 +5,6 @@ pub mod serializer;
 pub mod unlexer;
 pub mod vm;
 
-pub use language::{Bytes, Map, Value};
+pub use error::{Error, Result};
+pub use language::{Bytes, Insn, Location, Map, Token, Value};
+pub use vm::VM;
