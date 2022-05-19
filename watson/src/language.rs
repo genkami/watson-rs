@@ -23,10 +23,50 @@ pub enum Value {
 
 use Value::*;
 
+macro_rules! define_insn {
+    ( $( $name:ident ),* ) => {
+        impl Insn {
+            /// Returns an iterator that iterates over all instructions.
+            pub fn all() -> impl Iterator<Item = Self> {
+                [$( Insn::$name ),* ].into_iter()
+            }
+        }
+    };
+    ( $( $name:ident ),* ,) => {
+        define_insn!( $( $name ),* );
+    }
+}
+
 /// An instruction of the WATSON Virtual Machine.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
 pub enum Insn {
+    Inew,
+    Iinc,
+    Ishl,
+    Iadd,
+    Ineg,
+    Isht,
+    Itof,
+    Itou,
+    Finf,
+    Fnan,
+    Fneg,
+    Snew,
+    Sadd,
+    Onew,
+    Oadd,
+    Anew,
+    Aadd,
+    Bnew,
+    Bneg,
+    Nnew,
+    Gdup,
+    Gpop,
+    Gswp,
+}
+
+define_insn! {
     Inew,
     Iinc,
     Ishl,
@@ -316,13 +356,6 @@ mod conv {
 
     use super::*;
 
-    use Insn::*;
-
-    pub const ALL_INSNS: [Insn; 23] = [
-        Inew, Iinc, Ishl, Iadd, Ineg, Isht, Itof, Itou, Finf, Fnan, Fneg, Snew, Sadd, Onew, Oadd,
-        Anew, Aadd, Bnew, Bneg, Nnew, Gdup, Gpop, Gswp,
-    ];
-
     // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
     pub static BYTE_TO_INSN_TABLE_A: Lazy<HashMap<u8, Insn>> =
         Lazy::new(|| build_byte_to_insn_map(b"BubaAei'qtp?!~M@szo.E#%"));
@@ -339,8 +372,8 @@ mod conv {
     fn build_byte_to_insn_map(bytes: &[u8]) -> HashMap<u8, Insn> {
         bytes
             .iter()
-            .zip(&ALL_INSNS)
-            .map(|(c, i)| (*c, *i))
+            .zip(Insn::all())
+            .map(|(c, i)| (*c, i))
             .collect()
     }
 
@@ -360,7 +393,7 @@ mod test {
         fn assert_surjective(mode: Mode) {
             use std::collections::HashSet;
 
-            let mut insns = conv::ALL_INSNS.iter().map(|i| *i).collect::<HashSet<_>>();
+            let mut insns = Insn::all().collect::<HashSet<_>>();
             for c in ASCII_CHARS {
                 mode.byte_to_insn(c).map(|insn| insns.remove(&insn));
             }
@@ -404,7 +437,7 @@ mod test {
     #[test]
     fn mode_insn_to_byte_never_panics() {
         fn assert_never_panics(mode: Mode) {
-            for i in conv::ALL_INSNS {
+            for i in Insn::all() {
                 mode.insn_to_byte(i);
             }
         }
@@ -419,7 +452,7 @@ mod test {
             use std::collections::HashMap;
 
             let mut reversed = HashMap::new();
-            for i in conv::ALL_INSNS {
+            for i in Insn::all() {
                 let c = mode.insn_to_byte(i);
                 match reversed.get(&c) {
                     None => {
