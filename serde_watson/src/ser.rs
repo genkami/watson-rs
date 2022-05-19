@@ -515,13 +515,10 @@ mod test {
         It: Iterator<Item = watson::Insn>,
     {
         let mut vm = watson::VM::new();
-        for insn in it {
-            let token = watson::Token {
-                insn: insn,
-                location: watson::Location::unknown(),
-            };
-            vm.execute(token).expect("execution error");
-        }
+        vm.execute_all(watson::vm::SliceTokenReader::new(
+            &it.collect::<Vec<watson::Insn>>(),
+        ))
+        .expect("execution error");
         vm.peek_top().expect("stack should not be empty").clone()
     }
 }

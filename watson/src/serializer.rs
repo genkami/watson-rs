@@ -146,7 +146,6 @@ impl<W: WriteInsn> Serializer<W> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::language::{Location, Token};
     use crate::vm;
 
     #[test]
@@ -269,13 +268,8 @@ mod test {
 
     fn assert_identical(value: Value) {
         let mut vm = vm::VM::new();
-        for insn in to_insn_vec(&value) {
-            vm.execute(Token {
-                insn: insn,
-                location: Location::unknown(),
-            })
+        vm.execute_all(vm::SliceTokenReader::new(&to_insn_vec(&value)))
             .expect("execution error");
-        }
         let result = vm.peek_top().expect("stack is empty");
         assert_eq!(&value, result);
     }

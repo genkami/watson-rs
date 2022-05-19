@@ -1,6 +1,44 @@
 use crate::error::{Error, ErrorKind, Result};
-use crate::language::{Insn, IsValue, Map, Bytes, Token, Value};
+use crate::language::{Bytes, Insn, IsValue, Location, Map, Token, Value};
 use Insn::*;
+
+/// A source of tokens.
+pub trait ReadToken {
+    /// Reads a single token from an underlying source.
+    /// It should return `Ok(None)` if there is no more token.
+    fn read(&mut self) -> Result<Option<Token>>;
+}
+
+/// A token reader that reads from the given slice.
+pub struct SliceTokenReader<'a> {
+    next: usize,
+    slice: &'a [Insn],
+}
+
+impl<'a> SliceTokenReader<'a> {
+    /// Returns a new reader that reads tokens from the given slice.
+    pub fn new(slice: &'a [Insn]) -> Self {
+        SliceTokenReader {
+            next: 0,
+            slice: slice,
+        }
+    }
+}
+
+impl<'a> ReadToken for SliceTokenReader<'a> {
+    fn read(&mut self) -> Result<Option<Token>> {
+        if self.slice.len() <= self.next {
+            Ok(None)
+        } else {
+            let insn = self.slice[self.next];
+            self.next += 1;
+            Ok(Some(Token {
+                insn: insn,
+                location: Location::unknown(),
+            }))
+        }
+    }
+}
 
 /// A stack of the WATSON VM.
 /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
@@ -187,6 +225,17 @@ impl VM {
                 Ok(())
             }
         }
+    }
+
+    /// Executes all instructions sequentially from the given reader.
+    pub fn execute_all<R>(&mut self, mut reader: R) -> Result<()>
+    where
+        R: ReadToken,
+    {
+        while let Some(token) = reader.read()? {
+            self.execute(token)?;
+        }
+        Ok(())
     }
 
     /// Returns a `Value` on the top of the stack.
