@@ -24,72 +24,74 @@ pub enum Value {
 use Value::*;
 
 macro_rules! define_insn {
-    ( $( $name:ident ),* ) => {
+    ( $( ($name:ident, $achar:expr, $schar:expr) ),* ) => {
+        /// An instruction of the WATSON Virtual Machine.
+        /// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
+        #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
+        pub enum Insn {
+            $( $name ),*
+        }
+
         impl Insn {
             /// Returns an iterator that iterates over all instructions.
             pub fn all() -> impl Iterator<Item = Self> {
                 [$( Insn::$name ),* ].into_iter()
             }
+
+            /// Converts itself into its byte representation.
+            pub fn into_byte(self, mode: Mode) -> u8 {
+                match mode {
+                    Mode::A => self.into_byte_a(),
+                    Mode::S => self.into_byte_s(),
+                }
+            }
+
+            fn into_byte_a(self) -> u8 {
+                match self {
+                    $(
+                        Insn::$name => $achar
+                    ),*
+                }
+            }
+
+            fn into_byte_s(self) -> u8 {
+                match self {
+                    $(
+                        Insn::$name => $schar
+                    ),*
+                }
+            }
         }
     };
-    ( $( $name:ident ),* ,) => {
-        define_insn!( $( $name ),* );
+    ( $( ($name:ident, $achar:expr, $schar:expr) ),* ,) => {
+        define_insn!( $( ($name, $achar, $schar) ),* );
     }
 }
 
-/// An instruction of the WATSON Virtual Machine.
-/// See [the specification](https://github.com/genkami/watson/blob/main/doc/spec.md) for more details.
-#[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
-pub enum Insn {
-    Inew,
-    Iinc,
-    Ishl,
-    Iadd,
-    Ineg,
-    Isht,
-    Itof,
-    Itou,
-    Finf,
-    Fnan,
-    Fneg,
-    Snew,
-    Sadd,
-    Onew,
-    Oadd,
-    Anew,
-    Aadd,
-    Bnew,
-    Bneg,
-    Nnew,
-    Gdup,
-    Gpop,
-    Gswp,
-}
-
 define_insn! {
-    Inew,
-    Iinc,
-    Ishl,
-    Iadd,
-    Ineg,
-    Isht,
-    Itof,
-    Itou,
-    Finf,
-    Fnan,
-    Fneg,
-    Snew,
-    Sadd,
-    Onew,
-    Oadd,
-    Anew,
-    Aadd,
-    Bnew,
-    Bneg,
-    Nnew,
-    Gdup,
-    Gpop,
-    Gswp,
+    (Inew, b'B', b'S'),
+    (Iinc, b'u', b'h'),
+    (Ishl, b'b', b'a'),
+    (Iadd, b'a', b'k'),
+    (Ineg, b'A', b'r'),
+    (Isht, b'e', b'A'),
+    (Itof, b'i', b'z'),
+    (Itou, b'\'', b'i'),
+    (Finf, b'q', b'm'),
+    (Fnan, b't', b'b'),
+    (Fneg, b'p', b'u'),
+    (Snew, b'?', b'$'),
+    (Sadd, b'!', b'-'),
+    (Onew, b'~', b'+'),
+    (Oadd, b'M', b'g'),
+    (Anew, b'@', b'v'),
+    (Aadd, b's', b'?'),
+    (Bnew, b'z', b'^'),
+    (Bneg, b'o', b'!'),
+    (Nnew, b'.', b'y'),
+    (Gdup, b'E', b'/'),
+    (Gpop, b'#', b'e'),
+    (Gswp, b'%', b':'),
 }
 
 /// A token of the WATSON language.
