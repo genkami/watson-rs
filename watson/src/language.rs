@@ -38,11 +38,39 @@ macro_rules! define_insn {
                 [$( Insn::$name ),* ].into_iter()
             }
 
+            /// Converts a byte representation into corresponding `Insn`.
+            /// Which byte is converted to which insn depends on `Mode`.
+            pub fn from_byte(mode: Mode, byte: u8) -> Option<Self> {
+                match mode {
+                    Mode::A => Insn::from_byte_a(byte),
+                    Mode::S => Insn::from_byte_s(byte),
+                }
+            }
+
             /// Converts itself into its byte representation.
+            /// Which insn is converted to which byte depends on `Mode`.
             pub fn into_byte(self, mode: Mode) -> u8 {
                 match mode {
                     Mode::A => self.into_byte_a(),
                     Mode::S => self.into_byte_s(),
+                }
+            }
+
+            fn from_byte_a(byte: u8) -> Option<Self> {
+                match byte {
+                    $(
+                        $achar => Some(Insn::$name),
+                    )*
+                    _ => None,
+                }
+            }
+
+            fn from_byte_s(byte: u8) -> Option<Self> {
+                match byte {
+                    $(
+                        $schar => Some(Insn::$name),
+                    )*
+                    _ => None,
                 }
             }
 
