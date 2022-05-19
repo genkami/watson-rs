@@ -13,7 +13,7 @@ pub struct Lexer<R> {
 
     mode: Mode,
 
-    last_read_ascii: u8,
+    last_read_byte: u8,
     file_path: Option<Rc<path::Path>>,
     line: usize,
     column: usize,
@@ -43,7 +43,7 @@ impl Config {
         Lexer {
             bytes: reader.bytes(),
             mode: self.initial_mode,
-            last_read_ascii: 0,
+            last_read_byte: 0,
             file_path: self.file_path,
             line: 1,
             column: 0,
@@ -80,7 +80,7 @@ impl<R: io::Read> Lexer<R> {
             None => Ok(None),
             Some(byte) => {
                 let byte = byte.map_err(|e| Error::from_io_error(e, self.current_location()))?;
-                self.last_read_ascii = byte;
+                self.last_read_byte = byte;
                 if byte == b'\n' {
                     self.line += 1;
                     self.column = 0;
@@ -94,7 +94,7 @@ impl<R: io::Read> Lexer<R> {
 
     fn current_location(&self) -> Location {
         Location {
-            ascii: self.last_read_ascii,
+            byte: self.last_read_byte,
             path: self.file_path.as_ref().map(|rc| Rc::clone(rc)),
             line: self.line,
             column: self.column,
@@ -124,7 +124,7 @@ impl<R: io::Read> ReadToken for Lexer<R> {
                 None => {
                     return Ok(None);
                 }
-                Some(byte) => match self.mode.ascii_to_insn(byte) {
+                Some(byte) => match self.mode.byte_to_insn(byte) {
                     None => {
                         continue;
                     }
@@ -132,7 +132,7 @@ impl<R: io::Read> ReadToken for Lexer<R> {
                         token = Token {
                             insn: insn,
                             location: Location {
-                                ascii: byte,
+                                byte: byte,
                                 path: self.file_path.clone(),
                                 line: self.line,
                                 column: self.column,
@@ -153,14 +153,14 @@ mod test {
 
     #[test]
     fn lexer_new_initial_mode_defaults_to_a() {
-        let asciis = b"Bubba".to_vec();
-        let mut lexer = Lexer::new(&asciis[..]);
+        let bytes = b"Bubba".to_vec();
+        let mut lexer = Lexer::new(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: None,
                     line: 1,
                     column: 1,
@@ -171,16 +171,16 @@ mod test {
 
     #[test]
     fn lexer_new_initial_mode_can_be_overridden() {
-        let asciis = b"Shaak".to_vec();
+        let bytes = b"Shaak".to_vec();
         let mut conf = Config::default();
         conf.initial_mode = Mode::S;
-        let mut lexer = conf.new(&asciis[..]);
+        let mut lexer = conf.new(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'S',
+                    byte: b'S',
                     path: None,
                     line: 1,
                     column: 1,
@@ -191,14 +191,14 @@ mod test {
 
     #[test]
     fn lexer_new_file_path_defaults_to_none() {
-        let asciis = b"Bubba".to_vec();
-        let mut lexer = Lexer::new(&asciis[..]);
+        let bytes = b"Bubba".to_vec();
+        let mut lexer = Lexer::new(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: None,
                     line: 1,
                     column: 1,
@@ -209,17 +209,17 @@ mod test {
 
     #[test]
     fn lexer_file_path_can_be_overridden() {
-        let asciis = b"Bubba".to_vec();
+        let bytes = b"Bubba".to_vec();
         let path = path::Path::new("test.watson");
         let mut conf = Config::default();
         conf.file_path = Some(path.to_path_buf().into());
-        let mut lexer = conf.new(&asciis[..]);
+        let mut lexer = conf.new(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: Some(path.to_path_buf().into()),
                     line: 1,
                     column: 1,
@@ -243,7 +243,7 @@ mod test {
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: Some(path.to_path_buf().into()),
                     line: 1,
                     column: 1,
@@ -271,7 +271,7 @@ mod test {
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: Some(path_to_display.to_path_buf().into()),
                     line: 1,
                     column: 1,
@@ -283,14 +283,14 @@ mod test {
 
     #[test]
     fn lexer_advances_column_and_line() {
-        let asciis = b"Bub\nba".to_vec();
-        let mut lexer = Lexer::new(&asciis[..]);
+        let bytes = b"Bub\nba".to_vec();
+        let mut lexer = Lexer::new(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: None,
                     line: 1,
                     column: 1,
@@ -302,7 +302,7 @@ mod test {
             Some(Token {
                 insn: Insn::Iinc,
                 location: Location {
-                    ascii: b'u',
+                    byte: b'u',
                     path: None,
                     line: 1,
                     column: 2,
@@ -314,7 +314,7 @@ mod test {
             Some(Token {
                 insn: Insn::Ishl,
                 location: Location {
-                    ascii: b'b',
+                    byte: b'b',
                     path: None,
                     line: 1,
                     column: 3,
@@ -328,7 +328,7 @@ mod test {
             Some(Token {
                 insn: Insn::Ishl,
                 location: Location {
-                    ascii: b'b',
+                    byte: b'b',
                     path: None,
                     line: 2,
                     column: 1,
@@ -340,7 +340,7 @@ mod test {
             Some(Token {
                 insn: Insn::Iadd,
                 location: Location {
-                    ascii: b'a',
+                    byte: b'a',
                     path: None,
                     line: 2,
                     column: 2,
@@ -351,8 +351,8 @@ mod test {
 
     #[test]
     fn lexer_returns_none_when_eof() {
-        let asciis = b"Bub".to_vec();
-        let mut lexer = Lexer::new(&asciis[..]);
+        let bytes = b"Bub".to_vec();
+        let mut lexer = Lexer::new(&bytes[..]);
 
         assert_eq!(lexer.read().unwrap().unwrap().insn, Insn::Inew);
         assert_eq!(lexer.read().unwrap().unwrap().insn, Insn::Iinc);
@@ -362,14 +362,14 @@ mod test {
 
     #[test]
     fn lexer_changes_mode() {
-        let asciis = b"Bu?Sh$B".to_vec();
-        let mut lexer = Lexer::new(&asciis[..]);
+        let bytes = b"Bu?Sh$B".to_vec();
+        let mut lexer = Lexer::new(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: None,
                     line: 1,
                     column: 1,
@@ -381,7 +381,7 @@ mod test {
             Some(Token {
                 insn: Insn::Iinc,
                 location: Location {
-                    ascii: b'u',
+                    byte: b'u',
                     path: None,
                     line: 1,
                     column: 2,
@@ -393,7 +393,7 @@ mod test {
             Some(Token {
                 insn: Insn::Snew,
                 location: Location {
-                    ascii: b'?',
+                    byte: b'?',
                     path: None,
                     line: 1,
                     column: 3,
@@ -407,7 +407,7 @@ mod test {
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'S',
+                    byte: b'S',
                     path: None,
                     line: 1,
                     column: 4,
@@ -419,7 +419,7 @@ mod test {
             Some(Token {
                 insn: Insn::Iinc,
                 location: Location {
-                    ascii: b'h',
+                    byte: b'h',
                     path: None,
                     line: 1,
                     column: 5,
@@ -431,7 +431,7 @@ mod test {
             Some(Token {
                 insn: Insn::Snew,
                 location: Location {
-                    ascii: b'$',
+                    byte: b'$',
                     path: None,
                     line: 1,
                     column: 6,
@@ -444,7 +444,7 @@ mod test {
             Some(Token {
                 insn: Insn::Inew,
                 location: Location {
-                    ascii: b'B',
+                    byte: b'B',
                     path: None,
                     line: 1,
                     column: 7,

@@ -65,8 +65,8 @@ pub struct Token {
 /// Location where an error happened.
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub struct Location {
-    /// A character that the WATSON VM read.
-    pub ascii: u8,
+    /// A byte that the WATSON VM read.
+    pub byte: u8,
 
     /// Optional file path.
     pub path: Option<Rc<path::Path>>,
@@ -81,7 +81,7 @@ pub struct Location {
 impl Location {
     pub fn unknown() -> Self {
         Location {
-            ascii: 0,
+            byte: 0,
             path: None,
             line: 0,
             column: 0,
@@ -108,20 +108,20 @@ impl Mode {
         }
     }
 
-    // Converts an ASCII character to its corresponding `vm::Insn` with respect to the current `Mode`.
-    pub fn ascii_to_insn(self, ascii: u8) -> Option<Insn> {
+    // Converts an byte character to its corresponding `vm::Insn` with respect to the current `Mode`.
+    pub fn byte_to_insn(self, byte: u8) -> Option<Insn> {
         let table = match self {
-            Mode::A => &*conv::ASCII_TO_INSN_TABLE_A,
-            Mode::S => &*conv::ASCII_TO_INSN_TABLE_S,
+            Mode::A => &*conv::BYTE_TO_INSN_TABLE_A,
+            Mode::S => &*conv::BYTE_TO_INSN_TABLE_S,
         };
-        table.get(&ascii).map(|i| *i)
+        table.get(&byte).map(|i| *i)
     }
 
-    // Converts a `vm::Insn` to its corresponding ASCII character with respect to the current `Mode`.
-    pub fn insn_to_ascii(self, insn: Insn) -> u8 {
+    // Converts a `vm::Insn` to its corresponding byte character with respect to the current `Mode`.
+    pub fn insn_to_byte(self, insn: Insn) -> u8 {
         let table = match self {
-            Mode::A => &*conv::INSN_TO_ASCII_TABLE_A,
-            Mode::S => &*conv::INSN_TO_ASCII_TABLE_S,
+            Mode::A => &*conv::INSN_TO_BYTE_TABLE_A,
+            Mode::S => &*conv::INSN_TO_BYTE_TABLE_S,
         };
         table.get(&insn).map(|c| *c).unwrap()
     }
@@ -324,20 +324,20 @@ mod conv {
     ];
 
     // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
-    pub static ASCII_TO_INSN_TABLE_A: Lazy<HashMap<u8, Insn>> =
-        Lazy::new(|| build_ascii_to_insn_map(b"BubaAei'qtp?!~M@szo.E#%"));
+    pub static BYTE_TO_INSN_TABLE_A: Lazy<HashMap<u8, Insn>> =
+        Lazy::new(|| build_byte_to_insn_map(b"BubaAei'qtp?!~M@szo.E#%"));
 
-    pub static ASCII_TO_INSN_TABLE_S: Lazy<HashMap<u8, Insn>> =
-        Lazy::new(|| build_ascii_to_insn_map(b"ShakrAzimbu$-+gv?^!y/e:"));
+    pub static BYTE_TO_INSN_TABLE_S: Lazy<HashMap<u8, Insn>> =
+        Lazy::new(|| build_byte_to_insn_map(b"ShakrAzimbu$-+gv?^!y/e:"));
 
-    pub static INSN_TO_ASCII_TABLE_A: Lazy<HashMap<Insn, u8>> =
-        Lazy::new(|| reverse(&*ASCII_TO_INSN_TABLE_A));
+    pub static INSN_TO_BYTE_TABLE_A: Lazy<HashMap<Insn, u8>> =
+        Lazy::new(|| reverse(&*BYTE_TO_INSN_TABLE_A));
 
-    pub static INSN_TO_ASCII_TABLE_S: Lazy<HashMap<Insn, u8>> =
-        Lazy::new(|| reverse(&*ASCII_TO_INSN_TABLE_S));
+    pub static INSN_TO_BYTE_TABLE_S: Lazy<HashMap<Insn, u8>> =
+        Lazy::new(|| reverse(&*BYTE_TO_INSN_TABLE_S));
 
-    fn build_ascii_to_insn_map(asciis: &[u8]) -> HashMap<u8, Insn> {
-        asciis
+    fn build_byte_to_insn_map(bytes: &[u8]) -> HashMap<u8, Insn> {
+        bytes
             .iter()
             .zip(&ALL_INSNS)
             .map(|(c, i)| (*c, *i))
@@ -356,17 +356,17 @@ mod test {
     const ASCII_CHARS: std::ops::RangeInclusive<u8> = b'!'..=b'~';
 
     #[test]
-    fn mode_ascii_to_insn_is_surjective() {
+    fn mode_byte_to_insn_is_surjective() {
         fn assert_surjective(mode: Mode) {
             use std::collections::HashSet;
 
             let mut insns = conv::ALL_INSNS.iter().map(|i| *i).collect::<HashSet<_>>();
             for c in ASCII_CHARS {
-                mode.ascii_to_insn(c).map(|insn| insns.remove(&insn));
+                mode.byte_to_insn(c).map(|insn| insns.remove(&insn));
             }
             for insn in insns {
                 panic!(
-                    "mode={:?}: instruction {:?} does not have matching ASCII characters",
+                    "mode={:?}: instruction {:?} does not have matching byte characters",
                     mode, insn
                 );
             }
@@ -377,13 +377,13 @@ mod test {
     }
 
     #[test]
-    fn mode_ascii_to_insn_is_injective() {
+    fn mode_byte_to_insn_is_injective() {
         fn assert_injective(mode: Mode) {
             use std::collections::HashMap;
 
             let mut reversed = HashMap::new();
             for c in ASCII_CHARS {
-                mode.ascii_to_insn(c).map(|insn| match reversed.get(&insn) {
+                mode.byte_to_insn(c).map(|insn| match reversed.get(&insn) {
                     None => {
                         reversed.insert(insn, c);
                     }
@@ -402,10 +402,10 @@ mod test {
     }
 
     #[test]
-    fn mode_insn_to_ascii_never_panics() {
+    fn mode_insn_to_byte_never_panics() {
         fn assert_never_panics(mode: Mode) {
             for i in conv::ALL_INSNS {
-                mode.insn_to_ascii(i);
+                mode.insn_to_byte(i);
             }
         }
 
@@ -414,13 +414,13 @@ mod test {
     }
 
     #[test]
-    fn mode_insn_to_ascii_is_injective() {
+    fn mode_insn_to_byte_is_injective() {
         fn assert_injective(mode: Mode) {
             use std::collections::HashMap;
 
             let mut reversed = HashMap::new();
             for i in conv::ALL_INSNS {
-                let c = mode.insn_to_ascii(i);
+                let c = mode.insn_to_byte(i);
                 match reversed.get(&c) {
                     None => {
                         reversed.insert(c, i);

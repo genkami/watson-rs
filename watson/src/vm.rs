@@ -782,7 +782,7 @@ mod test {
         Token {
             insn: insn,
             location: Location {
-                ascii: b'X',
+                byte: b'X',
                 path: None,
                 line: 0,
                 column: 0,

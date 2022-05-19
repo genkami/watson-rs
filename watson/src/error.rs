@@ -59,7 +59,7 @@ impl fmt::Display for Error {
             " (line: {}, column: {})",
             self.location.line, self.location.column
         )?;
-        if let Some(c) = char::from_u32(self.location.ascii as u32) {
+        if let Some(c) = char::from_u32(self.location.byte as u32) {
             write!(f, ", near the character {}", c)?;
         }
         Ok(())
