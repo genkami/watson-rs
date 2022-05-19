@@ -124,7 +124,7 @@ impl<R: io::Read> ReadToken for Lexer<R> {
                 None => {
                     return Ok(None);
                 }
-                Some(byte) => match self.mode.byte_to_insn(byte) {
+                Some(byte) => match Insn::from_byte(self.mode, byte) {
                     None => {
                         continue;
                     }

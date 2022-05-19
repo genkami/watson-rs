@@ -72,7 +72,7 @@ impl<W> Unlexer<W> {
 impl<W: io::Write> WriteInsn for Unlexer<W> {
     /// Writes a single `Insn` to its underlying writer.
     fn write(&mut self, insn: Insn) -> Result<()> {
-        let mut buf = [self.mode.insn_to_byte(insn)];
+        let mut buf = [insn.into_byte(self.mode)];
         self.writer.write_all(&buf)?;
         self.column += 1;
         if 0 < self.chars_per_line && self.chars_per_line <= self.column {

@@ -177,24 +177,6 @@ impl Mode {
             Mode::S => Mode::A,
         }
     }
-
-    // Converts an byte character to its corresponding `vm::Insn` with respect to the current `Mode`.
-    pub fn byte_to_insn(self, byte: u8) -> Option<Insn> {
-        let table = match self {
-            Mode::A => &*conv::BYTE_TO_INSN_TABLE_A,
-            Mode::S => &*conv::BYTE_TO_INSN_TABLE_S,
-        };
-        table.get(&byte).map(|i| *i)
-    }
-
-    // Converts a `vm::Insn` to its corresponding byte character with respect to the current `Mode`.
-    pub fn insn_to_byte(self, insn: Insn) -> u8 {
-        let table = match self {
-            Mode::A => &*conv::INSN_TO_BYTE_TABLE_A,
-            Mode::S => &*conv::INSN_TO_BYTE_TABLE_S,
-        };
-        table.get(&insn).map(|c| *c).unwrap()
-    }
 }
 
 macro_rules! impl_from_int_for_value {
@@ -380,38 +362,6 @@ impl ToBytes for &str {
     }
 }
 
-mod conv {
-    use once_cell::sync::Lazy;
-    use std::collections::HashMap;
-
-    use super::*;
-
-    // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
-    pub static BYTE_TO_INSN_TABLE_A: Lazy<HashMap<u8, Insn>> =
-        Lazy::new(|| build_byte_to_insn_map(b"BubaAei'qtp?!~M@szo.E#%"));
-
-    pub static BYTE_TO_INSN_TABLE_S: Lazy<HashMap<u8, Insn>> =
-        Lazy::new(|| build_byte_to_insn_map(b"ShakrAzimbu$-+gv?^!y/e:"));
-
-    pub static INSN_TO_BYTE_TABLE_A: Lazy<HashMap<Insn, u8>> =
-        Lazy::new(|| reverse(&*BYTE_TO_INSN_TABLE_A));
-
-    pub static INSN_TO_BYTE_TABLE_S: Lazy<HashMap<Insn, u8>> =
-        Lazy::new(|| reverse(&*BYTE_TO_INSN_TABLE_S));
-
-    fn build_byte_to_insn_map(bytes: &[u8]) -> HashMap<u8, Insn> {
-        bytes
-            .iter()
-            .zip(Insn::all())
-            .map(|(c, i)| (*c, i))
-            .collect()
-    }
-
-    fn reverse(orig: &HashMap<u8, Insn>) -> HashMap<Insn, u8> {
-        orig.iter().map(|(c, i)| (*i, *c)).collect()
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -419,13 +369,13 @@ mod test {
     const ASCII_CHARS: std::ops::RangeInclusive<u8> = b'!'..=b'~';
 
     #[test]
-    fn mode_byte_to_insn_is_surjective() {
+    fn insn_from_byte_is_surjective() {
         fn assert_surjective(mode: Mode) {
             use std::collections::HashSet;
 
             let mut insns = Insn::all().collect::<HashSet<_>>();
             for c in ASCII_CHARS {
-                mode.byte_to_insn(c).map(|insn| insns.remove(&insn));
+                Insn::from_byte(mode, c).map(|insn| insns.remove(&insn));
             }
             for insn in insns {
                 panic!(
@@ -440,13 +390,13 @@ mod test {
     }
 
     #[test]
-    fn mode_byte_to_insn_is_injective() {
+    fn insn_from_byte_is_injective() {
         fn assert_injective(mode: Mode) {
             use std::collections::HashMap;
 
             let mut reversed = HashMap::new();
             for c in ASCII_CHARS {
-                mode.byte_to_insn(c).map(|insn| match reversed.get(&insn) {
+                Insn::from_byte(mode, c).map(|insn| match reversed.get(&insn) {
                     None => {
                         reversed.insert(insn, c);
                     }
@@ -465,25 +415,13 @@ mod test {
     }
 
     #[test]
-    fn mode_insn_to_byte_never_panics() {
-        fn assert_never_panics(mode: Mode) {
-            for i in Insn::all() {
-                mode.insn_to_byte(i);
-            }
-        }
-
-        assert_never_panics(Mode::A);
-        assert_never_panics(Mode::S);
-    }
-
-    #[test]
-    fn mode_insn_to_byte_is_injective() {
+    fn insn_into_byte_is_injective() {
         fn assert_injective(mode: Mode) {
             use std::collections::HashMap;
 
             let mut reversed = HashMap::new();
             for i in Insn::all() {
-                let c = mode.insn_to_byte(i);
+                let c = i.into_byte(mode);
                 match reversed.get(&c) {
                     None => {
                         reversed.insert(c, i);
