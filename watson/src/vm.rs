@@ -206,7 +206,7 @@ impl VM {
             }),
             Bnew => push(&mut ops, false),
             Bneg => ops.apply1(|b: bool| !b),
-            Nnew => push(&mut ops, Value::Nil),
+            Nnew => push(&mut ops, ()),
             Gdup => {
                 let v = ops.pop()?;
                 ops.push(v.clone());

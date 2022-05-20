@@ -251,6 +251,12 @@ impl From<bool> for Value {
     }
 }
 
+impl From<()> for Value {
+    fn from(_: ()) -> Value {
+        Nil
+    }
+}
+
 /// A type that can be converted directly from and to `Value`.
 /// This is different from From<Value> and Into<Value> in that the values of these these types are "identical" to `Value`.
 pub trait IsValue: Into<Value> {
@@ -327,6 +333,15 @@ impl IsValue for bool {
     fn from_value(v: Value) -> Option<bool> {
         match v {
             Bool(b) => Some(b),
+            _ => None,
+        }
+    }
+}
+
+impl IsValue for () {
+    fn from_value(v: Value) -> Option<()> {
+        match v {
+            Nil => Some(()),
             _ => None,
         }
     }
