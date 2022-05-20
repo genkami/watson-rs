@@ -140,9 +140,13 @@ where
         Ok(())
     }
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<()> {
-        todo!()
+    fn serialize_some<T>(self, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        value.serialize(self)
     }
+
     fn serialize_unit(self) -> Result<()> {
         todo!()
     }
@@ -462,6 +466,12 @@ mod test {
         let mut ser = Serializer::new(&mut buf);
         ser.serialize_none().expect("serialization error");
         assert_eq!(decode(&mut buf.into_iter()), Value::Nil);
+    }
+
+    #[test]
+    fn serialize_some() {
+        assert_encodes(Some(true), Bool(true));
+        assert_encodes(Some(123), Int(123));
     }
 
     /*
