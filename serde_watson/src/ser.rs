@@ -58,7 +58,7 @@ where
 {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = Self;
+    type SerializeSeq = SerializeSeq<'a, W>;
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Self;
@@ -194,9 +194,11 @@ where
         Ok(())
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self> {
-        todo!("seq")
+    fn serialize_seq(self, _len: Option<usize>) -> Result<SerializeSeq<'a, W>> {
+        self.inner.write(Insn::Anew)?;
+        Ok(SerializeSeq { ser: self })
     }
+
     fn serialize_tuple(self, _len: usize) -> Result<Self> {
         todo!("tuple")
     }
@@ -229,22 +231,28 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeSeq for &'a mut Serializer<W>
+pub struct SerializeSeq<'a, W> {
+    ser: &'a mut Serializer<W>,
+}
+
+impl<'a, W> ser::SerializeSeq for SerializeSeq<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, _value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
-        todo!()
+        value.serialize(&mut *self.ser)?;
+        self.ser.inner.write(Insn::Aadd)?;
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -542,6 +550,11 @@ mod test {
             E::A(false),
             Object([(b"A".to_vec(), Bool(false))].into_iter().collect()),
         );
+    }
+
+    #[test]
+    fn serialize_seq() {
+        assert_encodes(vec![1, 2, 3], Array(vec![Int(1), Int(2), Int(3)]));
     }
 
     /*
