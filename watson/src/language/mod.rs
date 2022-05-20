@@ -5,7 +5,6 @@ mod conversion;
 
 pub use self::conversion::{IsValue, ToBytes};
 
-#[macro_export]
 macro_rules! define_insn {
     ( $( ($name:ident, $achar:expr, $schar:expr) ),* ) => {
         /// An instruction of the WATSON Virtual Machine.
