@@ -61,7 +61,7 @@ where
     type SerializeSeq = SerializeSeq<'a, W>;
     type SerializeTuple = SerializeTuple<'a, W>;
     type SerializeTupleStruct = SerializeTupleStruct<'a, W>;
-    type SerializeTupleVariant = Self;
+    type SerializeTupleVariant = SerializeTupleVariant<'a, W>;
     type SerializeMap = Self;
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
@@ -215,11 +215,14 @@ where
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         _len: usize,
-    ) -> Result<Self> {
-        todo!()
+    ) -> Result<SerializeTupleVariant<'a, W>> {
+        self.inner.write(Insn::Onew)?;
+        self.serialize_str(variant)?;
+        self.serialize_seq(None)
     }
+
     fn serialize_map(self, _len: Option<usize>) -> Result<Self> {
         todo!()
     }
@@ -304,19 +307,25 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTupleVariant for &'a mut Serializer<W>
+type SerializeTupleVariant<'a, W> = SerializeSeq<'a, W>;
+
+impl<'a, W> ser::SerializeTupleVariant for SerializeTupleVariant<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, _value: &T) -> Result<()> {
-        todo!()
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        self.ser.inner.write(Insn::Oadd)?;
+        Ok(())
     }
 }
 
@@ -589,6 +598,32 @@ mod test {
         assert_encodes(
             T(123, true, "foo"),
             Array(vec![Int(123), Bool(true), String(b"foo".to_vec())]),
+        );
+    }
+
+    #[test]
+    fn serialize_tuple_variant() {
+        #[derive(Debug, Serialize)]
+        enum E {
+            A(i32, bool),
+            B(u64, ()),
+        }
+
+        assert_encodes(
+            E::A(123, true),
+            Object(
+                vec![(b"A".to_vec(), Array(vec![Int(123), Bool(true)]))]
+                    .into_iter()
+                    .collect(),
+            ),
+        );
+        assert_encodes(
+            E::B(456, ()),
+            Object(
+                vec![(b"B".to_vec(), Array(vec![Uint(456), Nil]))]
+                    .into_iter()
+                    .collect(),
+            ),
         );
     }
 
