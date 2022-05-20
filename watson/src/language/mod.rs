@@ -181,9 +181,26 @@ impl Mode {
     }
 }
 
+#[macro_export]
+macro_rules! object {
+    // To suppress unused_mut.
+    () => {
+        $crate::language::Value::Object($crate::language::Map::new())
+    };
+    ( $( $key:ident : $value:expr ),* $(,)? ) => {{
+        let mut map = $crate::language::Map::new();
+        $(
+            map.insert($crate::language::ToBytes::to_bytes(&stringify!($key)), $value);
+        )*
+        $crate::language::Value::Object(map)
+    }};
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use Value::*;
+
     // 0x21 to 0x7E
     const ASCII_CHARS: std::ops::RangeInclusive<u8> = b'!'..=b'~';
 
@@ -257,5 +274,29 @@ mod test {
 
         assert_injective(Mode::A);
         assert_injective(Mode::S);
+    }
+
+    #[test]
+    fn object_macro() {
+        assert_eq!(object![], Object([].into_iter().collect()));
+        assert_eq!(
+            object![x: Int(1)],
+            Object([(b"x".to_vec(), Int(1))].into_iter().collect())
+        );
+        assert_eq!(
+            object![x: Int(1), y: Bool(true), z: object![nested: Nil]],
+            Object(
+                [
+                    (b"x".to_vec(), Int(1)),
+                    (b"y".to_vec(), Bool(true)),
+                    (
+                        b"z".to_vec(),
+                        Object([(b"nested".to_vec(), Nil)].into_iter().collect())
+                    )
+                ]
+                .into_iter()
+                .collect()
+            )
+        );
     }
 }
