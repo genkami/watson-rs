@@ -64,7 +64,7 @@ where
     type SerializeTupleVariant = SerializeTupleVariant<'a, W>;
     type SerializeMap = SerializeMap<'a, W>;
     type SerializeStruct = SerializeStruct<'a, W>;
-    type SerializeStructVariant = Self;
+    type SerializeStructVariant = SerializeStructVariant<'a, W>;
 
     fn serialize_bool(self, v: bool) -> Result<()> {
         self.inner.serialize(&Value::Bool(v))?;
@@ -236,10 +236,12 @@ where
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         _len: usize,
-    ) -> Result<Self> {
-        todo!()
+    ) -> Result<SerializeStructVariant<'a, W>> {
+        self.inner.write(Insn::Onew)?;
+        self.serialize_str(variant)?;
+        self.serialize_map(None)
     }
 }
 
@@ -328,7 +330,7 @@ where
 
     fn end(self) -> Result<()> {
         self.ser.inner.write(Insn::Oadd)?;
-        Ok(())
+        ser::SerializeSeq::end(self)
     }
 }
 
@@ -388,22 +390,25 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeStructVariant for &'a mut Serializer<W>
+type SerializeStructVariant<'a, W> = SerializeMap<'a, W>;
+
+impl<'a, W> ser::SerializeStructVariant for SerializeStructVariant<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, _key: &'static str, _value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
-        todo!()
+        ser::SerializeMap::serialize_entry(self, key, value)
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        self.ser.inner.write(Insn::Oadd)?;
+        ser::SerializeMap::end(self)
     }
 }
 
@@ -659,6 +664,19 @@ mod test {
             },
             object![f1: Int(123), f2: String(b"abc".to_vec()), f3: Bool(true)],
         )
+    }
+
+    #[test]
+    fn serialize_struct_variant() {
+        #[derive(Debug, Serialize)]
+        enum E {
+            S { f1: u32, f2: i32 },
+        }
+
+        assert_encodes(
+            E::S { f1: 123, f2: 456 },
+            object![S: object![f1: Uint(123), f2: Int(456)]],
+        );
     }
 
     /*
