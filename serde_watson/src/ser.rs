@@ -153,8 +153,10 @@ where
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        todo!()
+        self.inner.serialize(&Value::Nil)?;
+        Ok(())
     }
+
     fn serialize_unit_variant(
         self,
         _name: &'static str,
@@ -476,6 +478,16 @@ mod test {
     #[test]
     fn serialize_unit() {
         assert_encodes((), Nil);
+    }
+
+    #[test]
+    fn serialize_unit_struct() {
+        use serde::Serialize;
+
+        #[derive(Debug, Serialize)]
+        struct S;
+
+        assert_encodes(S, Nil);
     }
 
     /*

@@ -11,3 +11,4 @@ watson = { version = "0.1.0", path = "../watson" }
 
 [dev-dependencies]
 serde_test = "1.0.137"
+serde = { version = "1.0.137", features = ["derive"] }
