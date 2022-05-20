@@ -41,6 +41,13 @@ impl<W> Serializer<W> {
     }
 }
 
+/// Serialize itself can be used as a `WriteInsn`.
+impl<W: WriteInsn> WriteInsn for Serializer<W> {
+    fn write(&mut self, insn: Insn) -> Result<()> {
+        self.writer.write(insn)
+    }
+}
+
 impl<W: WriteInsn> Serializer<W> {
     /// Serializes a single `Value`.
     pub fn serialize(&mut self, v: &Value) -> Result<()> {
@@ -132,14 +139,6 @@ impl<W: WriteInsn> Serializer<W> {
 
     fn serialize_nil(&mut self) -> Result<()> {
         self.write(Nnew)
-    }
-
-    fn write(&mut self, i: Insn) -> Result<()> {
-        self.writer.write(i)
-    }
-
-    fn write_all(&mut self, insns: &[Insn]) -> Result<()> {
-        self.writer.write_all(insns)
     }
 }
 

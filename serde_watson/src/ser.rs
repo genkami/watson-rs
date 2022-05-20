@@ -4,7 +4,7 @@ use std::fmt;
 use serde::ser;
 use watson::serializer;
 use watson::serializer::WriteInsn;
-use watson::Value;
+use watson::{Insn, Value};
 
 #[derive(Debug)]
 pub struct Error;
@@ -166,9 +166,17 @@ where
         self.serialize_str(variant)
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, _value: &T) -> Result<()> {
-        todo!()
+    fn serialize_newtype_struct<T>(self, name: &'static str, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        self.inner.write(Insn::Onew)?;
+        self.serialize_str(name)?;
+        value.serialize(&mut *self)?;
+        self.inner.write(Insn::Oadd)?;
+        Ok(())
     }
+
     fn serialize_newtype_variant<T: ?Sized>(
         self,
         _name: &'static str,
@@ -345,6 +353,7 @@ where
 mod test {
     use super::*;
     use serde::ser::Serializer as SerdeSerializer;
+    use serde::Serialize;
     use watson::ToBytes;
     use watson::Value::*;
 
@@ -483,8 +492,6 @@ mod test {
 
     #[test]
     fn serialize_unit_struct() {
-        use serde::Serialize;
-
         #[derive(Debug, Serialize)]
         struct S;
 
@@ -493,8 +500,6 @@ mod test {
 
     #[test]
     fn serialize_unit_variant() {
-        use serde::Serialize;
-
         #[derive(Debug, Serialize)]
         enum E {
             A,
@@ -505,6 +510,17 @@ mod test {
         assert_encodes(E::A, String(b"A".to_vec()));
         assert_encodes(E::B, String(b"B".to_vec()));
         assert_encodes(E::C, String(b"C".to_vec()));
+    }
+
+    #[test]
+    fn serialize_newtype_variant() {
+        #[derive(Debug, Serialize)]
+        struct S(i64);
+
+        assert_encodes(
+            S(123),
+            Object([(b"S".to_vec(), Int(123))].into_iter().collect()),
+        )
     }
 
     /*
