@@ -59,7 +59,7 @@ where
     type Ok = ();
     type Error = Error;
     type SerializeSeq = SerializeSeq<'a, W>;
-    type SerializeTuple = Self;
+    type SerializeTuple = SerializeTuple<'a, W>;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = Self;
     type SerializeMap = Self;
@@ -199,9 +199,10 @@ where
         Ok(SerializeSeq { ser: self })
     }
 
-    fn serialize_tuple(self, _len: usize) -> Result<Self> {
-        todo!("tuple")
+    fn serialize_tuple(self, _len: usize) -> Result<SerializeTuple<'a, W>> {
+        self.serialize_seq(None)
     }
+
     fn serialize_tuple_struct(self, _name: &'static str, _len: usize) -> Result<Self> {
         todo!("tuple_struct")
     }
@@ -256,19 +257,24 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTuple for &'a mut Serializer<W>
+type SerializeTuple<'a, W> = SerializeSeq<'a, W>;
+
+impl<'a, W> ser::SerializeTuple for SerializeTuple<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, _value: &T) -> Result<()> {
-        todo!()
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        ser::SerializeSeq::end(self)
     }
 }
 
@@ -555,6 +561,14 @@ mod test {
     #[test]
     fn serialize_seq() {
         assert_encodes(vec![1, 2, 3], Array(vec![Int(1), Int(2), Int(3)]));
+    }
+
+    #[test]
+    fn serialize_tuple() {
+        assert_encodes(
+            (1, true, vec![2_u8, 3_u8]),
+            Array(vec![Int(1), Bool(true), Array(vec![Uint(2), Uint(3)])]),
+        );
     }
 
     /*
