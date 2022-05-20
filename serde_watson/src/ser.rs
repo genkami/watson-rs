@@ -148,8 +148,10 @@ where
     }
 
     fn serialize_unit(self) -> Result<()> {
-        todo!()
+        self.inner.serialize(&Value::Nil)?;
+        Ok(())
     }
+
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
         todo!()
     }
@@ -462,16 +464,18 @@ mod test {
 
     #[test]
     fn serialize_none() {
-        let mut buf = vec![];
-        let mut ser = Serializer::new(&mut buf);
-        ser.serialize_none().expect("serialization error");
-        assert_eq!(decode(&mut buf.into_iter()), Value::Nil);
+        assert_encodes(Option::<i32>::None, Nil);
     }
 
     #[test]
     fn serialize_some() {
         assert_encodes(Some(true), Bool(true));
         assert_encodes(Some(123), Int(123));
+    }
+
+    #[test]
+    fn serialize_unit() {
+        assert_encodes((), Nil);
     }
 
     /*
