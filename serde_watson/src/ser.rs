@@ -161,10 +161,11 @@ where
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
     ) -> Result<()> {
-        todo!()
+        self.serialize_str(variant)
     }
+
     fn serialize_newtype_struct<T: ?Sized>(self, _name: &'static str, _value: &T) -> Result<()> {
         todo!()
     }
@@ -488,6 +489,22 @@ mod test {
         struct S;
 
         assert_encodes(S, Nil);
+    }
+
+    #[test]
+    fn serialize_unit_variant() {
+        use serde::Serialize;
+
+        #[derive(Debug, Serialize)]
+        enum E {
+            A,
+            B,
+            C,
+        }
+
+        assert_encodes(E::A, String(b"A".to_vec()));
+        assert_encodes(E::B, String(b"B".to_vec()));
+        assert_encodes(E::C, String(b"C".to_vec()));
     }
 
     /*
