@@ -177,15 +177,23 @@ where
         Ok(())
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
-    ) -> Result<()> {
-        todo!()
+        variant: &'static str,
+        value: &T,
+    ) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        self.inner.write(Insn::Onew)?;
+        self.serialize_str(variant)?;
+        value.serialize(&mut *self)?;
+        self.inner.write(Insn::Oadd)?;
+        Ok(())
     }
+
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self> {
         todo!("seq")
     }
@@ -513,7 +521,7 @@ mod test {
     }
 
     #[test]
-    fn serialize_newtype_variant() {
+    fn serialize_newtype_struct() {
         #[derive(Debug, Serialize)]
         struct S(i64);
 
@@ -521,6 +529,19 @@ mod test {
             S(123),
             Object([(b"S".to_vec(), Int(123))].into_iter().collect()),
         )
+    }
+
+    #[test]
+    fn serialize_newtype_variant() {
+        #[derive(Debug, Serialize)]
+        enum E {
+            A(bool),
+        }
+
+        assert_encodes(
+            E::A(false),
+            Object([(b"A".to_vec(), Bool(false))].into_iter().collect()),
+        );
     }
 
     /*
