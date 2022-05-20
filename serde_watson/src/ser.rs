@@ -60,7 +60,7 @@ where
     type Error = Error;
     type SerializeSeq = SerializeSeq<'a, W>;
     type SerializeTuple = SerializeTuple<'a, W>;
-    type SerializeTupleStruct = Self;
+    type SerializeTupleStruct = SerializeTupleStruct<'a, W>;
     type SerializeTupleVariant = Self;
     type SerializeMap = Self;
     type SerializeStruct = Self;
@@ -203,9 +203,14 @@ where
         self.serialize_seq(None)
     }
 
-    fn serialize_tuple_struct(self, _name: &'static str, _len: usize) -> Result<Self> {
-        todo!("tuple_struct")
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<SerializeTupleStruct<'a, W>> {
+        self.serialize_seq(None)
     }
+
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
@@ -278,19 +283,24 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTupleStruct for &'a mut Serializer<W>
+type SerializeTupleStruct<'a, W> = SerializeSeq<'a, W>;
+
+impl<'a, W> ser::SerializeTupleStruct for SerializeTupleStruct<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, _value: &T) -> Result<()> {
-        todo!()
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        ser::SerializeSeq::serialize_element(self, value)
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        ser::SerializeSeq::end(self)
     }
 }
 
@@ -568,6 +578,17 @@ mod test {
         assert_encodes(
             (1, true, vec![2_u8, 3_u8]),
             Array(vec![Int(1), Bool(true), Array(vec![Uint(2), Uint(3)])]),
+        );
+    }
+
+    #[test]
+    fn serialize_tuple_struct() {
+        #[derive(Debug, Serialize)]
+        struct T(i32, bool, &'static str);
+
+        assert_encodes(
+            T(123, true, "foo"),
+            Array(vec![Int(123), Bool(true), String(b"foo".to_vec())]),
         );
     }
 
