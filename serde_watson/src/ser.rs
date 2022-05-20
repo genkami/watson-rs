@@ -62,7 +62,7 @@ where
     type SerializeTuple = SerializeTuple<'a, W>;
     type SerializeTupleStruct = SerializeTupleStruct<'a, W>;
     type SerializeTupleVariant = SerializeTupleVariant<'a, W>;
-    type SerializeMap = Self;
+    type SerializeMap = SerializeMap<'a, W>;
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
@@ -223,9 +223,11 @@ where
         self.serialize_seq(None)
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<Self> {
-        todo!()
+    fn serialize_map(self, _len: Option<usize>) -> Result<SerializeMap<'a, W>> {
+        self.inner.write(Insn::Onew)?;
+        Ok(SerializeMap { ser: self })
     }
+
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self> {
         todo!()
     }
@@ -329,29 +331,36 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeMap for &'a mut Serializer<W>
+pub struct SerializeMap<'a, W> {
+    ser: &'a mut Serializer<W>,
+}
+
+impl<'a, W> ser::SerializeMap for SerializeMap<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<T: ?Sized>(&mut self, _key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
-        todo!()
+        // TODO: encode only string
+        key.serialize(&mut *self.ser)
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, _value: &T) -> Result<()>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
-        T: ser::Serialize,
+        T: ?Sized + ser::Serialize,
     {
-        todo!()
+        value.serialize(&mut *self.ser)?;
+        self.ser.inner.write(Insn::Oadd)?;
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -606,6 +615,23 @@ mod test {
 
         assert_encodes(E::A(123, true), object![A: array![Int(123), Bool(true)]]);
         assert_encodes(E::B(456, ()), object![B: array![Uint(456), Nil]]);
+    }
+
+    #[test]
+    fn serialize_map() {
+        type HM<T> = std::collections::HashMap<&'static str, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [("foo", "bar")].into_iter().collect::<HM<&'static str>>(),
+            object![foo: String(b"bar".to_vec())],
+        );
+        assert_encodes(
+            [("foo", 123), ("bar", 456)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            object![foo: Int(123), bar: Int(456)],
+        );
     }
 
     /*
