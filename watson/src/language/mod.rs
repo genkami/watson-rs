@@ -181,6 +181,24 @@ impl Mode {
     }
 }
 
+/// Creates an array `Value` consisting of the arguments.
+#[macro_export]
+macro_rules! array {
+    // To suppress unused_mut.
+    () => {
+        $crate::language::Value::Array(std::vec::Vec::new())
+    };
+    ( $( $elem:expr ),* $(,)? ) => {{
+        let mut vec = std::vec::Vec::new();
+        $(
+            vec.push($elem);
+        )*
+        $crate::language::Value::Array(vec)
+    }}
+}
+
+/// Creates an object `Value` consisting of the given key-value pairs.
+/// Keys must be identifiers and values must be any expressions of type `Value`.
 #[macro_export]
 macro_rules! object {
     // To suppress unused_mut.
@@ -277,6 +295,24 @@ mod test {
     }
 
     #[test]
+    fn array_macro() {
+        assert_eq!(array![], Array(vec![]));
+        assert_eq!(array![Int(123)], Array(vec![Int(123)]));
+        assert_eq!(
+            array![Int(123), Bool(false), array![Uint(456)]],
+            Array(vec![Int(123), Bool(false), Array(vec![Uint(456)])])
+        );
+        assert_eq!(
+            array![
+                Int(123),
+                Bool(false),
+                array![Uint(456)], // trailing comma
+            ],
+            Array(vec![Int(123), Bool(false), Array(vec![Uint(456)])])
+        )
+    }
+
+    #[test]
     fn object_macro() {
         assert_eq!(object![], Object([].into_iter().collect()));
         assert_eq!(
@@ -285,6 +321,23 @@ mod test {
         );
         assert_eq!(
             object![x: Int(1), y: Bool(true), z: object![nested: Nil]],
+            Object(
+                [
+                    (b"x".to_vec(), Int(1)),
+                    (b"y".to_vec(), Bool(true)),
+                    (
+                        b"z".to_vec(),
+                        Object([(b"nested".to_vec(), Nil)].into_iter().collect())
+                    )
+                ]
+                .into_iter()
+                .collect()
+            )
+        );
+        assert_eq!(
+            object![
+                x: Int(1), y: Bool(true), z: object![nested: Nil], // trailing comma
+            ],
             Object(
                 [
                     (b"x".to_vec(), Int(1)),
