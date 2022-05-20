@@ -63,7 +63,7 @@ where
     type SerializeTupleStruct = SerializeTupleStruct<'a, W>;
     type SerializeTupleVariant = SerializeTupleVariant<'a, W>;
     type SerializeMap = SerializeMap<'a, W>;
-    type SerializeStruct = Self;
+    type SerializeStruct = SerializeStruct<'a, W>;
     type SerializeStructVariant = Self;
 
     fn serialize_bool(self, v: bool) -> Result<()> {
@@ -228,9 +228,10 @@ where
         Ok(SerializeMap { ser: self })
     }
 
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self> {
-        todo!()
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<SerializeStruct<'a, W>> {
+        self.serialize_map(None)
     }
+
     fn serialize_struct_variant(
         self,
         _name: &'static str,
@@ -364,19 +365,26 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeStruct for &'a mut Serializer<W>
+type SerializeStruct<'a, W> = SerializeMap<'a, W>;
+
+impl<'a, W> ser::SerializeStruct for SerializeStruct<'a, W>
 where
     W: WriteInsn,
 {
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, _key: &'static str, _value: &T) -> Result<()> {
-        todo!()
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        ser::SerializeMap::serialize_key(&mut *self, key)?;
+        ser::SerializeMap::serialize_value(&mut *self, value)?;
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
-        todo!()
+        ser::SerializeMap::end(self)
     }
 }
 
@@ -632,6 +640,25 @@ mod test {
                 .collect::<HM<i32>>(),
             object![foo: Int(123), bar: Int(456)],
         );
+    }
+
+    #[test]
+    fn serialize_struct() {
+        #[derive(Debug, Serialize)]
+        struct S {
+            f1: i32,
+            f2: &'static str,
+            f3: bool,
+        }
+
+        assert_encodes(
+            S {
+                f1: 123,
+                f2: "abc",
+                f3: true,
+            },
+            object![f1: Int(123), f2: String(b"abc".to_vec()), f3: Bool(true)],
+        )
     }
 
     /*
