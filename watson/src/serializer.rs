@@ -146,6 +146,7 @@ impl<W: WriteInsn> Serializer<W> {
 mod test {
     use super::*;
     use crate::vm;
+    use crate::{array, object};
 
     #[test]
     fn serializer_int() {
@@ -202,46 +203,26 @@ mod test {
 
     #[test]
     fn serializer_object() {
-        assert_identical(Object(Map::new()));
-        assert_identical(Object(
-            vec![(b"key".to_vec(), Int(123))].into_iter().collect(),
-        ));
-        assert_identical(Object(
-            vec![
-                (b"key".to_vec(), Int(123)),
-                (b"another_key".to_vec(), Float(1.23)),
-            ]
-            .into_iter()
-            .collect(),
-        ));
-        assert_identical(Object(
-            vec![
-                (b"key".to_vec(), Int(123)),
-                (b"another_key".to_vec(), Float(1.23)),
-                (
-                    b"nested_object".to_vec(),
-                    Object(
-                        vec![(b"nested_key".to_vec(), String(b"value".to_vec()))]
-                            .into_iter()
-                            .collect(),
-                    ),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-        ));
+        assert_identical(object![]);
+        assert_identical(object![key: Int(123)]);
+        assert_identical(object![key: Int(123), another_key: Float(1.23)]);
+        assert_identical(object![
+            key: Int(123),
+            another_key: Float(1.23),
+            nested_object: object![nested_key: String(b"value".to_vec())],
+        ]);
     }
 
     #[test]
     fn serializer_array() {
-        assert_identical(Array(Vec::new()));
-        assert_identical(Array(vec![Int(1)]));
-        assert_identical(Array(vec![Int(1), String(b"2".to_vec())]));
-        assert_identical(Array(vec![
+        assert_identical(array![]);
+        assert_identical(array![Int(1)]);
+        assert_identical(array![Int(1), String(b"2".to_vec())]);
+        assert_identical(array![
             Int(1),
             String(b"2".to_vec()),
-            Array(vec![Uint(3), String(b"nested".to_vec())]),
-        ]));
+            array![Uint(3), String(b"nested".to_vec())],
+        ]);
     }
 
     #[test]

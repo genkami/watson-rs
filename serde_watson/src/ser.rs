@@ -397,6 +397,7 @@ mod test {
     use serde::Serialize;
     use watson::ToBytes;
     use watson::Value::*;
+    use watson::{array, object};
 
     #[test]
     fn serialize_bool() {
@@ -558,10 +559,7 @@ mod test {
         #[derive(Debug, Serialize)]
         struct S(i64);
 
-        assert_encodes(
-            S(123),
-            Object([(b"S".to_vec(), Int(123))].into_iter().collect()),
-        )
+        assert_encodes(S(123), object![S: Int(123)])
     }
 
     #[test]
@@ -571,22 +569,19 @@ mod test {
             A(bool),
         }
 
-        assert_encodes(
-            E::A(false),
-            Object([(b"A".to_vec(), Bool(false))].into_iter().collect()),
-        );
+        assert_encodes(E::A(false), object![A: Bool(false)]);
     }
 
     #[test]
     fn serialize_seq() {
-        assert_encodes(vec![1, 2, 3], Array(vec![Int(1), Int(2), Int(3)]));
+        assert_encodes(vec![1, 2, 3], array![Int(1), Int(2), Int(3)]);
     }
 
     #[test]
     fn serialize_tuple() {
         assert_encodes(
             (1, true, vec![2_u8, 3_u8]),
-            Array(vec![Int(1), Bool(true), Array(vec![Uint(2), Uint(3)])]),
+            array![Int(1), Bool(true), array![Uint(2), Uint(3)]],
         );
     }
 
@@ -597,7 +592,7 @@ mod test {
 
         assert_encodes(
             T(123, true, "foo"),
-            Array(vec![Int(123), Bool(true), String(b"foo".to_vec())]),
+            array![Int(123), Bool(true), String(b"foo".to_vec())],
         );
     }
 
@@ -609,22 +604,8 @@ mod test {
             B(u64, ()),
         }
 
-        assert_encodes(
-            E::A(123, true),
-            Object(
-                vec![(b"A".to_vec(), Array(vec![Int(123), Bool(true)]))]
-                    .into_iter()
-                    .collect(),
-            ),
-        );
-        assert_encodes(
-            E::B(456, ()),
-            Object(
-                vec![(b"B".to_vec(), Array(vec![Uint(456), Nil]))]
-                    .into_iter()
-                    .collect(),
-            ),
-        );
+        assert_encodes(E::A(123, true), object![A: array![Int(123), Bool(true)]]);
+        assert_encodes(E::B(456, ()), object![B: array![Uint(456), Nil]]);
     }
 
     /*

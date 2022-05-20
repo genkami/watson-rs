@@ -260,6 +260,7 @@ mod test {
 
     use super::*;
     use crate::language::Location;
+    use crate::{array, object};
     use Value::*;
 
     #[test]
@@ -601,7 +602,7 @@ mod test {
         let mut vm = VM::new();
 
         vm.execute(new_token(Onew))?;
-        assert_eq!(vm.peek_top(), Some(&Object(Map::new())));
+        assert_eq!(vm.peek_top(), Some(&object![]));
 
         Ok(())
     }
@@ -611,7 +612,7 @@ mod test {
         let mut vm = VM::new();
 
         vm.execute(new_token(Onew))?;
-        assert_eq!(vm.peek_top(), Some(&Object(Map::new())));
+        assert_eq!(vm.peek_top(), Some(&object![]));
 
         let mut ops = vm.borrow_stack_mut().force_operate();
         ops.push(String(b"key1".to_vec()));
@@ -619,11 +620,7 @@ mod test {
         vm.execute(new_token(Oadd))?;
         assert_eq!(
             vm.peek_top(),
-            Some(&Object(
-                vec![(b"key1".to_vec(), String(b"value1".to_vec()))]
-                    .into_iter()
-                    .collect()
-            ))
+            Some(&object![key1: String(b"value1".to_vec())]),
         );
 
         let mut ops = vm.borrow_stack_mut().force_operate();
@@ -632,14 +629,10 @@ mod test {
         vm.execute(new_token(Oadd))?;
         assert_eq!(
             vm.peek_top(),
-            Some(&Object(
-                vec![
-                    (b"key1".to_vec(), String(b"value1".to_vec())),
-                    (b"key2".to_vec(), Int(22222)),
-                ]
-                .into_iter()
-                .collect()
-            ))
+            Some(&object![
+                key1: String(b"value1".to_vec()),
+                key2: Int(22222),
+            ]),
         );
         Ok(())
     }
@@ -649,7 +642,7 @@ mod test {
         let mut vm = VM::new();
 
         vm.execute(new_token(Anew))?;
-        assert_eq!(vm.peek_top(), Some(&Array(Vec::new())));
+        assert_eq!(vm.peek_top(), Some(&array![]));
 
         Ok(())
     }
@@ -659,11 +652,11 @@ mod test {
         let mut vm = VM::new();
 
         vm.execute(new_token(Anew))?;
-        assert_eq!(vm.peek_top(), Some(&Array(Vec::new())));
+        assert_eq!(vm.peek_top(), Some(&array![]));
 
         vm.borrow_stack_mut().force_operate().push(Int(123));
         vm.execute(new_token(Aadd))?;
-        assert_eq!(vm.peek_top(), Some(&Array(vec![Int(123)])));
+        assert_eq!(vm.peek_top(), Some(&array![Int(123)]));
 
         vm.borrow_stack_mut()
             .force_operate()
@@ -671,7 +664,7 @@ mod test {
         vm.execute(new_token(Aadd))?;
         assert_eq!(
             vm.peek_top(),
-            Some(&Array(vec![Int(123), String(b"hello".to_vec())]))
+            Some(&array![Int(123), String(b"hello".to_vec())]),
         );
 
         Ok(())
