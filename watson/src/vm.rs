@@ -243,6 +243,11 @@ impl VM {
         self.stack.peek_top()
     }
 
+    /// Converts itself into a value on the top of its stack.
+    pub fn into_top(mut self) -> Option<Value> {
+        self.stack.vec.pop()
+    }
+
     /// Borrows its stack mutably for debug purpose.
     pub fn borrow_stack_mut(&mut self) -> &mut Stack {
         &mut self.stack
