@@ -52,54 +52,86 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i8")
+        match self.value {
+            &watson::Value::Int(n) => visitor.visit_i64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i16")
+        match self.value {
+            &watson::Value::Int(n) => visitor.visit_i64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i32")
+        match self.value {
+            &watson::Value::Int(n) => visitor.visit_i64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i64")
+        match self.value {
+            &watson::Value::Int(n) => visitor.visit_i64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u8")
+        match self.value {
+            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u16")
+        match self.value {
+            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u32")
+        match self.value {
+            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u64")
+        match self.value {
+            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
+
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -240,9 +272,71 @@ mod test {
     use super::*;
 
     #[test]
-    fn deserialize_bool() -> Result<()> {
+    fn deserialize_bool() {
         assert_decodes(true, &Bool(true));
-        Ok(())
+        assert_decodes(false, &Bool(false));
+    }
+
+    #[test]
+    fn deserialize_i8() {
+        assert_decodes(0_i8, &Int(0));
+        assert_decodes(127_i8, &Int(127));
+        assert_decodes(-128_i8, &Int(-128));
+    }
+
+    #[test]
+    fn deserialize_i16() {
+        assert_decodes(0_i16, &Int(0));
+        assert_decodes(1_i16, &Int(1));
+        assert_decodes(32767_i16, &Int(32767));
+        assert_decodes(-1_i16, &Int(-1));
+        assert_decodes(-32768_i16, &Int(-32768));
+    }
+
+    #[test]
+    fn deserialize_i32() {
+        assert_decodes(0_i32, &Int(0));
+        assert_decodes(1_i32, &Int(1));
+        assert_decodes(2147483647_i32, &Int(2147483647));
+        assert_decodes(-1_i32, &Int(-1));
+        assert_decodes(-2147483647_i32, &Int(-2147483647));
+    }
+
+    #[test]
+    fn deserialize_i64() {
+        assert_decodes(0_i64, &Int(0));
+        assert_decodes(1_i64, &Int(1));
+        assert_decodes(9223372036854775807_i64, &Int(9223372036854775807_i64));
+        assert_decodes(-1_i64, &Int(-1));
+        assert_decodes(-9223372036854775808_i64, &Int(-9223372036854775808_i64));
+    }
+
+    #[test]
+    fn deserialize_u8() {
+        assert_decodes(0_u8, &Uint(0));
+        assert_decodes(1_u8, &Uint(1));
+        assert_decodes(255_u8, &Uint(255));
+    }
+
+    #[test]
+    fn deserialize_u16() {
+        assert_decodes(0_u16, &Uint(0));
+        assert_decodes(1_u16, &Uint(1));
+        assert_decodes(65535_u16, &Uint(65535));
+    }
+
+    #[test]
+    fn deserialize_u32() {
+        assert_decodes(0_u32, &Uint(0));
+        assert_decodes(1_u32, &Uint(1));
+        assert_decodes(4294967295_u32, &Uint(4294967295));
+    }
+
+    #[test]
+    fn deserialize_u64() {
+        assert_decodes(0_u64, &Uint(0));
+        assert_decodes(1_u64, &Uint(1));
+        assert_decodes(18446744073709551615_u64, &Uint(18446744073709551615));
     }
 
     /*
