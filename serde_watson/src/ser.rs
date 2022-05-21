@@ -431,40 +431,44 @@ where
     type SerializeStruct = SerializeStruct<'a, W>;
     type SerializeStructVariant = SerializeStructVariant<'a, W>;
 
-    fn serialize_bool(self, _v: bool) -> Result<()> {
-        todo!()
+    fn serialize_bool(self, v: bool) -> Result<()> {
+        if v {
+            self.ser.serialize_bytes(&[1])
+        } else {
+            self.ser.serialize_bytes(&[0])
+        }
     }
 
-    fn serialize_i8(self, _v: i8) -> Result<()> {
-        todo!()
+    fn serialize_i8(self, v: i8) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_i16(self, _v: i16) -> Result<()> {
-        todo!()
+    fn serialize_i16(self, v: i16) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_i32(self, _v: i32) -> Result<()> {
-        todo!()
+    fn serialize_i32(self, v: i32) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_i64(self, _v: i64) -> Result<()> {
-        todo!()
+    fn serialize_i64(self, v: i64) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_u8(self, _v: u8) -> Result<()> {
-        todo!()
+    fn serialize_u8(self, v: u8) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_u16(self, _v: u16) -> Result<()> {
-        todo!()
+    fn serialize_u16(self, v: u16) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_u32(self, _v: u32) -> Result<()> {
-        todo!()
+    fn serialize_u32(self, v: u32) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
-    fn serialize_u64(self, _v: u64) -> Result<()> {
-        todo!()
+    fn serialize_u64(self, v: u64) -> Result<()> {
+        self.ser.serialize_bytes(&v.to_be_bytes())
     }
 
     fn serialize_f32(self, _v: f32) -> Result<()> {
@@ -796,6 +800,166 @@ mod test {
 
         assert_encodes(E::A(123, true), object![A: array![Int(123), Bool(true)]]);
         assert_encodes(E::B(456, ()), object![B: array![Uint(456), Nil]]);
+    }
+
+    #[test]
+    fn serialize_map_key_bool() {
+        type HM<T> = std::collections::HashMap<bool, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(true, "true"), (false, "false")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x01"]: String(b"true".to_vec()),
+                [b"\x00"]: String(b"false".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_i8() {
+        type HM<T> = std::collections::HashMap<i8, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(0, "A"), (0x7f, "B"), (-0x80, "C")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00"]: String(b"A".to_vec()),
+                [b"\x7f"]: String(b"B".to_vec()),
+                [b"\x80"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_i16() {
+        type HM<T> = std::collections::HashMap<i16, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(0, "A"), (0x7fff, "B"), (-0x8000, "C")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00\x00"]: String(b"A".to_vec()),
+                [b"\x7f\xff"]: String(b"B".to_vec()),
+                [b"\x80\x00"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_i32() {
+        type HM<T> = std::collections::HashMap<i32, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(0, "A"), (0x7fff_ffff, "B"), (-0x8000_0000, "C")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00\x00\x00\x00"]: String(b"A".to_vec()),
+                [b"\x7f\xff\xff\xff"]: String(b"B".to_vec()),
+                [b"\x80\x00\x00\x00"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_i64() {
+        type HM<T> = std::collections::HashMap<i64, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [
+                (0, "A"),
+                (0x7fff_ffff_ffff_ffff, "B"),
+                (-0x8000_0000_0000_0000, "C"),
+            ]
+            .into_iter()
+            .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00\x00\x00\x00\x00\x00\x00\x00"]: String(b"A".to_vec()),
+                [b"\x7f\xff\xff\xff\xff\xff\xff\xff"]: String(b"B".to_vec()),
+                [b"\x80\x00\x00\x00\x00\x00\x00\x00"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_u8() {
+        type HM<T> = std::collections::HashMap<u8, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(0, "A"), (0x7f, "B"), (0xff, "C")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00"]: String(b"A".to_vec()),
+                [b"\x7f"]: String(b"B".to_vec()),
+                [b"\xff"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_u16() {
+        type HM<T> = std::collections::HashMap<u16, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(0, "A"), (0x7fff, "B"), (0xffff, "C")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00\x00"]: String(b"A".to_vec()),
+                [b"\x7f\xff"]: String(b"B".to_vec()),
+                [b"\xff\xff"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_u32() {
+        type HM<T> = std::collections::HashMap<u32, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [(0, "A"), (0x7fff_ffff, "B"), (0xffff_ffff, "C")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00\x00\x00\x00"]: String(b"A".to_vec()),
+                [b"\x7f\xff\xff\xff"]: String(b"B".to_vec()),
+                [b"\xff\xff\xff\xff"]: String(b"C".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn serialize_map_key_u64() {
+        type HM<T> = std::collections::HashMap<u64, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [
+                (0, "A"),
+                (0x7fff_ffff_ffff_ffff, "B"),
+                (0xffff_ffff_ffff_ffff, "C"),
+            ]
+            .into_iter()
+            .collect::<HM<&'static str>>(),
+            object![
+                [b"\x00\x00\x00\x00\x00\x00\x00\x00"]: String(b"A".to_vec()),
+                [b"\x7f\xff\xff\xff\xff\xff\xff\xff"]: String(b"B".to_vec()),
+                [b"\xff\xff\xff\xff\xff\xff\xff\xff"]: String(b"C".to_vec()),
+            ],
+        )
     }
 
     #[test]
