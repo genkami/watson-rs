@@ -13,6 +13,18 @@ impl<'de> Deserializer<'de> {
         Deserializer { value: value }
     }
 
+    fn borrow_str<V>(&self, visitor: &V) -> Result<&'de str>
+    where
+        V: de::Visitor<'de>,
+    {
+        match self.value {
+            &watson::Value::String(ref bytes) => {
+                std::str::from_utf8(bytes.as_slice()).map_err(|_| self.invalid_utf8(visitor))
+            }
+            _ => Err(self.invalid_type(visitor)),
+        }
+    }
+
     fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
         de::Error::invalid_type(self.ty(), exp)
     }
@@ -164,36 +176,28 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.value {
-            &watson::Value::String(ref bytes) => match std::str::from_utf8(bytes.as_slice()) {
-                Err(_) => Err(self.invalid_utf8(&visitor)),
-                Ok(s) => {
-                    let mut chars = s.chars();
-                    match chars.next() {
-                        None => Err(self.invalid_value("empty byte sequence", &visitor)),
-                        Some(c) => {
-                            if chars.next().is_some() {
-                                Err(self.invalid_value(
-                                    "string consisting of more than one characters",
-                                    &visitor,
-                                ))
-                            } else {
-                                visitor.visit_char(c)
-                            }
-                        }
-                    }
+        let mut chars = self.borrow_str(&visitor)?.chars();
+        match chars.next() {
+            None => Err(self.invalid_value("empty byte sequence", &visitor)),
+            Some(c) => {
+                if chars.next().is_some() {
+                    Err(self
+                        .invalid_value("string consisting of more than one characters", &visitor))
+                } else {
+                    visitor.visit_char(c)
                 }
-            },
-            _ => Err(self.invalid_type(&visitor)),
+            }
         }
     }
 
-    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("str")
+        let s = self.borrow_str(&visitor)?;
+        visitor.visit_borrowed_str(s)
     }
+
     fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -411,6 +415,13 @@ mod test {
     fn deserialize_char() {
         assert_decodes('a', &String(b"a".to_vec()));
         assert_decodes('あ', &String("あ".as_bytes().to_owned()));
+    }
+
+    #[test]
+    fn deserialize_str() {
+        let v = String(b"foobar".to_vec());
+        let s: &str = deserialize(&v);
+        assert_eq!(s, "foobar");
     }
 
     /*
