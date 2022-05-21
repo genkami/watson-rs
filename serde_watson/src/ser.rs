@@ -11,7 +11,7 @@ pub struct Error;
 
 impl fmt::Display for Error {
     fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+        todo!("fmt")
     }
 }
 
@@ -21,19 +21,19 @@ impl StdError for Error {
 
 impl ser::Error for Error {
     fn custom<T>(_msg: T) -> Self {
-        todo!()
+        todo!("custom")
     }
 }
 
 impl From<watson::Error> for Error {
     fn from(_v: watson::Error) -> Self {
-        todo!()
+        todo!("from<Error>")
     }
 }
 
 impl Error {
     fn key_must_be_bytes() -> Self {
-        todo!()
+        todo!("key_must_be_bytes")
     }
 }
 
@@ -485,16 +485,17 @@ where
         Err(Error::key_must_be_bytes())
     }
 
-    fn serialize_char(self, _v: char) -> Result<()> {
-        todo!()
+    fn serialize_char(self, v: char) -> Result<()> {
+        let mut buf = [0; 4];
+        self.ser.serialize_str(v.encode_utf8(&mut buf))
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
         self.ser.serialize_str(v)
     }
 
-    fn serialize_bytes(self, _v: &[u8]) -> Result<()> {
-        todo!()
+    fn serialize_bytes(self, v: &[u8]) -> Result<()> {
+        self.ser.serialize_bytes(v)
     }
 
     fn serialize_none(self) -> Result<()> {
@@ -505,7 +506,7 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        todo!("some")
     }
 
     fn serialize_unit(self) -> Result<()> {
@@ -969,6 +970,23 @@ mod test {
     }
 
     #[test]
+    fn serialize_map_key_char() {
+        type HM<T> = std::collections::HashMap<char, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [('A', 1), ('B', 2), ('参', 3)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            object![
+                [b"A"]: Int(1),
+                [b"B"]: Int(2),
+                [b"\xe5\x8f\x82"]: Int(3),
+            ],
+        );
+    }
+
+    #[test]
     fn serialize_map_key_str() {
         type HM<T> = std::collections::HashMap<&'static str, T>;
 
@@ -981,6 +999,30 @@ mod test {
             [("foo", 123), ("bar", 456), ("", 789)]
                 .into_iter()
                 .collect::<HM<i32>>(),
+            object![foo: Int(123), bar: Int(456), [b""]: Int(789)],
+        );
+    }
+
+    // #[test]
+    // TODO: support byte arrays
+    fn serialize_map_key_bytes() {
+        type HM<T> = std::collections::HashMap<Vec<u8>, T>;
+
+        assert_encodes(HM::<i32>::new(), object![]);
+        assert_encodes(
+            [("foo".to_bytes(), "bar")]
+                .into_iter()
+                .collect::<HM<&'static str>>(),
+            object![foo: String(b"bar".to_vec())],
+        );
+        assert_encodes(
+            [
+                ("foo".to_bytes(), 123),
+                ("bar".to_bytes(), 456),
+                ("".to_bytes(), 789),
+            ]
+            .into_iter()
+            .collect::<HM<i32>>(),
             object![foo: Int(123), bar: Int(456), [b""]: Int(789)],
         );
     }
