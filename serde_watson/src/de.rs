@@ -216,6 +216,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             _ => Err(self.invalid_type(&visitor)),
         }
     }
+
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -260,12 +261,16 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("seq")
+        match self.value {
+            &watson::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
+
     fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -325,11 +330,41 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 }
 
+struct SeqAccess<'de> {
+    arr: &'de Vec<watson::Value>,
+    next: usize,
+}
+
+impl<'de> SeqAccess<'de> {
+    fn new(arr: &'de Vec<watson::Value>) -> Self {
+        SeqAccess { arr: arr, next: 0 }
+    }
+}
+
+impl<'de> de::SeqAccess<'de> for SeqAccess<'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        if self.arr.len() <= self.next {
+            Ok(None)
+        } else {
+            let i = self.next;
+            self.next += 1;
+            let next_elem = seed.deserialize(&mut Deserializer::new(&self.arr[i]))?;
+            Ok(Some(next_elem))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fmt;
 
     use serde::Deserialize;
+    use watson::array;
     use watson::Value::*;
 
     use super::*;
@@ -519,6 +554,12 @@ mod test {
         struct S(i64);
 
         assert_decodes(S(123), &Int(123));
+    }
+
+    #[test]
+    fn deserialize_seq() {
+        assert_decodes(Vec::<bool>::new(), &array![]);
+        assert_decodes(vec![1i32, 2i32, 3i32], &array![Int(1), Int(2), Int(3)]);
     }
 
     /*
