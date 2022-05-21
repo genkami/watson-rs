@@ -197,18 +197,30 @@ macro_rules! array {
     }}
 }
 
+#[macro_export]
+#[doc(hidden)]
+macro_rules! object_key {
+    ($key:ident) => {
+        $crate::language::ToBytes::to_bytes(stringify!($key))
+    };
+    ([ $key:expr ]) => {
+        $crate::language::ToBytes::to_bytes($key)
+    };
+}
+
 /// Creates an object `Value` consisting of the given key-value pairs.
-/// Keys must be identifiers and values must be any expressions of type `Value`.
+/// The key must be an identifier or an expression that implements `ToBytes` surrounded by `[` and `]`.
+/// The value must be any expression of type `Value`.
 #[macro_export]
 macro_rules! object {
     // To suppress unused_mut.
     () => {
         $crate::language::Value::Object($crate::language::Map::new())
     };
-    ( $( $key:ident : $value:expr ),* $(,)? ) => {{
+    ( $( $key:tt : $value:expr ),* $(,)? ) => {{
         let mut map = $crate::language::Map::new();
         $(
-            map.insert($crate::language::ToBytes::to_bytes(&stringify!($key)), $value);
+            map.insert($crate::object_key!($key), $value);
         )*
         $crate::language::Value::Object(map)
     }};
@@ -320,13 +332,17 @@ mod test {
             Object([(b"x".to_vec(), Int(1))].into_iter().collect())
         );
         assert_eq!(
-            object![x: Int(1), y: Bool(true), z: object![nested: Nil]],
+            object![[b"y"]: Int(1)],
+            Object([(b"y".to_vec(), Int(1))].into_iter().collect())
+        );
+        assert_eq!(
+            object![x: Int(1), y: Bool(true), ['ぬ']: object![nested: Nil]],
             Object(
                 [
                     (b"x".to_vec(), Int(1)),
                     (b"y".to_vec(), Bool(true)),
                     (
-                        b"z".to_vec(),
+                        "ぬ".to_string().into_bytes(),
                         Object([(b"nested".to_vec(), Nil)].into_iter().collect())
                     )
                 ]

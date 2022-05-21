@@ -172,29 +172,68 @@ impl IsValue for () {
 /// A type that can be converted to `Bytes`.
 pub trait ToBytes {
     /// Converts `self` to `Bytes`.
-    fn to_bytes(&self) -> Bytes;
+    fn to_bytes(self) -> Bytes;
 }
 
 impl ToBytes for Bytes {
-    fn to_bytes(&self) -> Bytes {
-        self.clone()
+    fn to_bytes(self) -> Bytes {
+        self
     }
 }
 
-impl ToBytes for &Bytes {
-    fn to_bytes(&self) -> Bytes {
+impl<'a> ToBytes for &'a Bytes {
+    fn to_bytes(self) -> Bytes {
         self.to_vec()
     }
 }
 
+impl ToBytes for char {
+    fn to_bytes(self) -> Bytes {
+        let mut buf = [0; 4];
+        let len = self.encode_utf8(&mut buf).len();
+        buf[..len].to_bytes()
+    }
+}
+
 impl ToBytes for std::string::String {
-    fn to_bytes(&self) -> Bytes {
+    fn to_bytes(self) -> Bytes {
         self.to_owned().into_bytes()
     }
 }
 
-impl ToBytes for &str {
-    fn to_bytes(&self) -> Bytes {
+impl<'a> ToBytes for &'a str {
+    fn to_bytes(self) -> Bytes {
         self.as_bytes().to_vec()
     }
+}
+
+impl ToBytes for u8 {
+    fn to_bytes(self) -> Bytes {
+        vec![self]
+    }
+}
+
+impl<'a> ToBytes for &'a [u8] {
+    fn to_bytes(self) -> Bytes {
+        self.to_vec()
+    }
+}
+
+macro_rules! impl_to_bytes_for_array {
+    ( $( $n:tt ),* $(,)? ) => {
+        $(
+            impl<'a> ToBytes for &'a [u8; $n] {
+                fn to_bytes(self) -> Bytes {
+                    self.to_vec()
+                }
+            }
+        )*
+    };
+}
+
+impl_to_bytes_for_array! {
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+    33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+    49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
 }
