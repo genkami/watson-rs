@@ -506,7 +506,7 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!("some")
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_unit(self) -> Result<()> {
