@@ -1,43 +1,9 @@
-use std::error::Error as StdError;
-use std::fmt;
-
 use serde::ser;
 use watson::serializer;
 use watson::serializer::WriteInsn;
 use watson::{Insn, Value};
 
-#[derive(Debug)]
-pub struct Error;
-
-impl fmt::Display for Error {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!("fmt")
-    }
-}
-
-impl StdError for Error {
-    // TODO
-}
-
-impl ser::Error for Error {
-    fn custom<T>(_msg: T) -> Self {
-        todo!("custom")
-    }
-}
-
-impl From<watson::Error> for Error {
-    fn from(_v: watson::Error) -> Self {
-        todo!("from<Error>")
-    }
-}
-
-impl Error {
-    fn key_must_be_bytes() -> Self {
-        todo!("key_must_be_bytes")
-    }
-}
-
-type Result<T> = std::result::Result<T, Error>;
+use crate::error::{Error, Result};
 
 /// Serializer implements serde::ser::Serializer for WATSON encoding.
 pub struct Serializer<W> {
@@ -790,12 +756,15 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::fmt;
+
     use serde::ser::Serializer as SerdeSerializer;
     use serde::Serialize;
     use watson::ToBytes;
     use watson::Value::*;
     use watson::{array, object};
+
+    use super::*;
 
     #[test]
     fn serialize_bool() {

@@ -45,24 +45,7 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.kind)?;
-        match self.location.path.as_ref() {
-            Some(p) => {
-                write!(f, " at {}", p.to_string_lossy())?;
-            }
-            None => {
-                write!(f, " at unknown location")?;
-            }
-        }
-        write!(
-            f,
-            " (line: {}, column: {})",
-            self.location.line, self.location.column
-        )?;
-        if let Some(c) = char::from_u32(self.location.byte as u32) {
-            write!(f, ", near the character {}", c)?;
-        }
-        Ok(())
+        write!(f, "{} at {}", self.kind, self.location)
     }
 }
 
