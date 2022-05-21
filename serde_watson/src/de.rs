@@ -1,39 +1,38 @@
-use std::io;
-
 use serde::de;
-use watson::lexer;
-use watson::vm;
 
 use crate::error::{Error, Result};
 
 /// Deserializer implements serde::de::Deserializer for WATSON encoding.
-pub struct Deserializer<R> {
-    inner: R,
+pub struct Deserializer<'de> {
+    value: &'de watson::Value,
 }
 
-impl<R> Deserializer<R> {
-    /// Returns a new `Deserializer` that reads from the given reader.
-    pub fn new(reader: R) -> Self {
-        Deserializer { inner: reader }
+impl<'de> Deserializer<'de> {
+    /// Returns a new `Deeserializer` that reads from `value`.
+    pub fn new(value: &'de watson::Value) -> Self {
+        Deserializer { value: value }
     }
-}
 
-impl<R> Deserializer<lexer::Lexer<R>>
-where
-    R: io::Read,
-{
-    /// Creates a `Deserializer` from the given `io::Read`.
-    pub fn from_reader(reader: R) -> Self {
-        Deserializer {
-            inner: lexer::Lexer::new(reader),
+    fn unexpected(&self, exp: &dyn de::Expected) -> Error {
+        de::Error::invalid_type(self.ty(), exp)
+    }
+
+    fn ty(&self) -> de::Unexpected<'_> {
+        use watson::Value::*;
+        match self.value {
+            &Int(n) => de::Unexpected::Signed(n),
+            &Uint(n) => de::Unexpected::Unsigned(n),
+            &Float(f) => de::Unexpected::Float(f),
+            &String(ref bs) => de::Unexpected::Bytes(bs.as_slice()),
+            &Object(_) => de::Unexpected::Map,
+            &Array(_) => de::Unexpected::Seq,
+            &Bool(b) => de::Unexpected::Bool(b),
+            &Nil => de::Unexpected::Unit,
         }
     }
 }
 
-impl<'a, 'de, R> de::Deserializer<'de> for &'a mut Deserializer<R>
-where
-    R: vm::ReadToken,
-{
+impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
@@ -42,12 +41,17 @@ where
     {
         todo!("any")
     }
-    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("bool")
+        match self.value {
+            &watson::Value::Bool(b) => visitor.visit_bool(b),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
+
     fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -224,5 +228,34 @@ where
         V: de::Visitor<'de>,
     {
         todo!("ignored_any")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::fmt;
+
+    use watson::Value::*;
+
+    use super::*;
+
+    #[test]
+    fn deserialize_bool() -> Result<()> {
+        assert_decodes(true, &Bool(true));
+        Ok(())
+    }
+
+    /*
+     * Helper functions
+     */
+
+    fn assert_decodes<'de, T>(expected: T, v: &'de watson::Value)
+    where
+        T: PartialEq + fmt::Debug + de::Deserialize<'de>,
+    {
+        assert_eq!(
+            expected,
+            T::deserialize(&mut Deserializer::new(v)).expect("deserialization error")
+        );
     }
 }

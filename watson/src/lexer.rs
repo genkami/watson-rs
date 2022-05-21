@@ -9,6 +9,7 @@ use crate::vm::ReadToken;
 
 /// A lexer of the WATSON language.
 pub struct Lexer<R> {
+    // TODO: make this more generic (like Iterator<Item=io::Result<u8>>)
     bytes: io::Bytes<R>,
 
     mode: Mode,
