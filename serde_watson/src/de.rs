@@ -13,8 +13,16 @@ impl<'de> Deserializer<'de> {
         Deserializer { value: value }
     }
 
-    fn unexpected(&self, exp: &dyn de::Expected) -> Error {
+    fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
         de::Error::invalid_type(self.ty(), exp)
+    }
+
+    fn invalid_utf8(&self, exp: &dyn de::Expected) -> Error {
+        de::Error::invalid_value(de::Unexpected::Other("UTF-8 encoded string"), exp)
+    }
+
+    fn invalid_value(&self, desc: &'static str, exp: &dyn de::Expected) -> Error {
+        de::Error::invalid_value(de::Unexpected::Other(desc), exp)
     }
 
     fn ty(&self) -> de::Unexpected<'_> {
@@ -48,7 +56,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Bool(b) => visitor.visit_bool(b),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -58,7 +66,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Int(n) => visitor.visit_i64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -68,7 +76,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Int(n) => visitor.visit_i64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -78,7 +86,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Int(n) => visitor.visit_i64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -88,7 +96,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Int(n) => visitor.visit_i64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -98,7 +106,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Uint(n) => visitor.visit_u64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -108,7 +116,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Uint(n) => visitor.visit_u64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -118,7 +126,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Uint(n) => visitor.visit_u64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -128,7 +136,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Uint(n) => visitor.visit_u64(n),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -138,7 +146,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Float(f) => visitor.visit_f64(f),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
@@ -148,16 +156,38 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         match self.value {
             &watson::Value::Float(f) => visitor.visit_f64(f),
-            _ => Err(self.unexpected(&visitor)),
+            _ => Err(self.invalid_type(&visitor)),
         }
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("char")
+        match self.value {
+            &watson::Value::String(ref bytes) => match std::str::from_utf8(bytes.as_slice()) {
+                Err(_) => Err(self.invalid_utf8(&visitor)),
+                Ok(s) => {
+                    let mut chars = s.chars();
+                    match chars.next() {
+                        None => Err(self.invalid_value("empty byte sequence", &visitor)),
+                        Some(c) => {
+                            if chars.next().is_some() {
+                                Err(self.invalid_value(
+                                    "string consisting of more than one characters",
+                                    &visitor,
+                                ))
+                            } else {
+                                visitor.visit_char(c)
+                            }
+                        }
+                    }
+                }
+            },
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
+
     fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -375,6 +405,12 @@ mod test {
         );
         assert_decodes(1.25_f64, &Float(1.25));
         assert_decodes(-1.25_f64, &Float(-1.25));
+    }
+
+    #[test]
+    fn deserialize_char() {
+        assert_decodes('a', &String(b"a".to_vec()));
+        assert_decodes('あ', &String("あ".as_bytes().to_owned()));
     }
 
     /*
