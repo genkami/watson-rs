@@ -24,6 +24,8 @@ impl<W> Serializer<W> {
     }
 }
 
+// TODO: Serializer::from_writer<W: io::Write>(w: W)
+
 impl<'a, W> ser::Serializer for &'a mut Serializer<W>
 where
     W: WriteInsn,

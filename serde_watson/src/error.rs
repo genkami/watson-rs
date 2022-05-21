@@ -1,7 +1,7 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use serde::ser;
+use serde::{de, ser};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -51,6 +51,16 @@ impl ser::Error for Error {
             source: None,
         }
     }
+}
+impl de::Error for Error {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: fmt::Display,
+    {
+        ser::Error::custom(msg)
+    }
+
+    // TODO: implement other methods
 }
 
 impl From<watson::Error> for Error {
