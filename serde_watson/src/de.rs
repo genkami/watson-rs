@@ -253,12 +253,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("newtype_struct")
+        visitor.visit_newtype_struct(self)
     }
+
     fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -510,6 +511,14 @@ mod test {
         struct S;
 
         assert_decodes(S, &Nil);
+    }
+
+    #[test]
+    fn deserialize_newtype_struct() {
+        #[derive(Eq, PartialEq, Deserialize, Debug)]
+        struct S(i64);
+
+        assert_decodes(S(123), &Int(123));
     }
 
     /*
