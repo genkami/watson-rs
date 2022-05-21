@@ -236,18 +236,23 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit")
+        match self.value {
+            &watson::Value::Nil => visitor.visit_unit(),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit_struct")
+        self.deserialize_unit(visitor)
     }
+
     fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -323,6 +328,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 mod test {
     use std::fmt;
 
+    use serde::Deserialize;
     use watson::Value::*;
 
     use super::*;
@@ -491,6 +497,19 @@ mod test {
     fn deserialize_option() {
         assert_decodes(Some(123), &Int(123));
         assert_decodes(Option::<i32>::None, &Nil);
+    }
+
+    #[test]
+    fn deserialize_unit() {
+        assert_decodes((), &Nil);
+    }
+
+    #[test]
+    fn deserialize_unit_struct() {
+        #[derive(Eq, PartialEq, Deserialize, Debug)]
+        struct S;
+
+        assert_decodes(S, &Nil);
     }
 
     /*
