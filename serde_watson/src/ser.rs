@@ -1,6 +1,9 @@
+use std::io;
+
 use serde::ser;
 use watson::serializer;
 use watson::serializer::WriteInsn;
+use watson::unlexer;
 use watson::{Insn, Value};
 
 use crate::error::{Error, Result};
@@ -24,7 +27,17 @@ impl<W> Serializer<W> {
     }
 }
 
-// TODO: Serializer::from_writer<W: io::Write>(w: W)
+impl<W> Serializer<unlexer::Unlexer<W>>
+where
+    W: io::Write,
+{
+    /// Returns a new `Serializer` that writes to the given `io::Write`.
+    pub fn from_writer(writer: W) -> Self {
+        Serializer {
+            inner: serializer::Serializer::new(unlexer::Unlexer::new(writer)),
+        }
+    }
+}
 
 impl<'a, W> ser::Serializer for &'a mut Serializer<W>
 where
