@@ -13,6 +13,7 @@ impl<'de> Deserializer<'de> {
         Deserializer { value: value }
     }
 
+    /// Borrows an `str` from `Value::String`.
     fn borrow_str<V>(&self, visitor: &V) -> Result<&'de str>
     where
         V: de::Visitor<'de>,
@@ -198,12 +199,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_borrowed_str(s)
     }
 
-    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("bytes")
+        let s = self.borrow_str(&visitor)?;
+        visitor.visit_string(s.to_owned())
     }
+
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -422,6 +425,11 @@ mod test {
         let v = String(b"foobar".to_vec());
         let s: &str = deserialize(&v);
         assert_eq!(s, "foobar");
+    }
+
+    #[test]
+    fn deserialize_string() {
+        assert_decodes("".to_string(), &String(b"".to_vec()));
     }
 
     /*
