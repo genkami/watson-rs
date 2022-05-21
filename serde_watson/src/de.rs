@@ -226,12 +226,16 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("option")
+        match self.value {
+            &watson::Value::Nil => visitor.visit_none(),
+            _ => visitor.visit_some(self),
+        }
     }
+
     fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -481,6 +485,12 @@ mod test {
 
         assert_decodes(Buf(b"".to_vec()), &String(b"".to_vec()));
         assert_decodes(Buf(b"goodbye".to_vec()), &String(b"goodbye".to_vec()));
+    }
+
+    #[test]
+    fn deserialize_option() {
+        assert_decodes(Some(123), &Int(123));
+        assert_decodes(Option::<i32>::None, &Nil);
     }
 
     /*
