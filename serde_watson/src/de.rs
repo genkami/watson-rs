@@ -207,18 +207,25 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         visitor.visit_string(s.to_owned())
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("bytes")
+        match self.value {
+            &watson::Value::String(ref bytes) => visitor.visit_borrowed_bytes(bytes.as_slice()),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("byte_buf")
+        match self.value {
+            &watson::Value::String(ref bytes) => visitor.visit_byte_buf(bytes.clone()),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
+
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -430,6 +437,50 @@ mod test {
     #[test]
     fn deserialize_string() {
         assert_decodes("".to_string(), &String(b"".to_vec()));
+        assert_decodes("abc".to_string(), &String(b"abc".to_vec()));
+    }
+
+    #[test]
+    fn deserialize_bytes() {
+        let v = String(b"hello".to_vec());
+        let b: &[u8] = deserialize(&v);
+        assert_eq!(b, &b"hello"[..])
+    }
+
+    #[test]
+    fn deserialize_byte_buf() {
+        // The standard `de::Deserialize` implementation for `Vec<u8>` does not use `deserialize_byte_buf`.
+        #[derive(Eq, PartialEq, Debug)]
+        struct Buf(Vec<u8>);
+
+        impl<'de> de::Deserialize<'de> for Buf {
+            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+            where
+                D: de::Deserializer<'de>,
+            {
+                deserializer.deserialize_byte_buf(BufVisitor)
+            }
+        }
+
+        struct BufVisitor;
+
+        impl<'de> de::Visitor<'de> for BufVisitor {
+            type Value = Buf;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "byte_buf")
+            }
+
+            fn visit_byte_buf<E>(self, v: Vec<u8>) -> std::result::Result<Buf, E>
+            where
+                E: de::Error,
+            {
+                Ok(Buf(v))
+            }
+        }
+
+        assert_decodes(Buf(b"".to_vec()), &String(b"".to_vec()));
+        assert_decodes(Buf(b"goodbye".to_vec()), &String(b"goodbye".to_vec()));
     }
 
     /*
