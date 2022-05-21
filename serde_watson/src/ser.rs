@@ -978,10 +978,10 @@ mod test {
             object![foo: String(b"bar".to_vec())],
         );
         assert_encodes(
-            [("foo", 123), ("bar", 456)]
+            [("foo", 123), ("bar", 456), ("", 789)]
                 .into_iter()
                 .collect::<HM<i32>>(),
-            object![foo: Int(123), bar: Int(456)],
+            object![foo: Int(123), bar: Int(456), [b""]: Int(789)],
         );
     }
 
