@@ -31,6 +31,12 @@ impl From<watson::Error> for Error {
     }
 }
 
+impl Error {
+    fn key_must_be_bytes() -> Self {
+        todo!()
+    }
+}
+
 type Result<T> = std::result::Result<T, Error>;
 
 /// Serializer implements serde::ser::Serializer for WATSON encoding.
@@ -423,13 +429,13 @@ where
 {
     type Ok = ();
     type Error = Error;
-    type SerializeSeq = SerializeSeq<'a, W>;
-    type SerializeTuple = SerializeTuple<'a, W>;
-    type SerializeTupleStruct = SerializeTupleStruct<'a, W>;
-    type SerializeTupleVariant = SerializeTupleVariant<'a, W>;
-    type SerializeMap = SerializeMap<'a, W>;
-    type SerializeStruct = SerializeStruct<'a, W>;
-    type SerializeStructVariant = SerializeStructVariant<'a, W>;
+    type SerializeSeq = ser::Impossible<(), Error>;
+    type SerializeTuple = ser::Impossible<(), Error>;
+    type SerializeTupleStruct = ser::Impossible<(), Error>;
+    type SerializeTupleVariant = ser::Impossible<(), Error>;
+    type SerializeMap = ser::Impossible<(), Error>;
+    type SerializeStruct = ser::Impossible<(), Error>;
+    type SerializeStructVariant = ser::Impossible<(), Error>;
 
     fn serialize_bool(self, v: bool) -> Result<()> {
         if v {
@@ -472,11 +478,11 @@ where
     }
 
     fn serialize_f32(self, _v: f32) -> Result<()> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_f64(self, _v: f64) -> Result<()> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_char(self, _v: char) -> Result<()> {
@@ -492,7 +498,7 @@ where
     }
 
     fn serialize_none(self) -> Result<()> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_some<T>(self, _value: &T) -> Result<()>
@@ -503,11 +509,11 @@ where
     }
 
     fn serialize_unit(self) -> Result<()> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_unit_variant(
@@ -536,15 +542,15 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_tuple_struct(
@@ -552,7 +558,7 @@ where
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_tuple_variant(
@@ -562,15 +568,15 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 
     fn serialize_struct_variant(
@@ -580,7 +586,7 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        todo!()
+        Err(Error::key_must_be_bytes())
     }
 }
 
