@@ -194,12 +194,12 @@ where
         Ok(())
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<SerializeSeq<'a, W>> {
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         self.inner.write(Insn::Anew)?;
         Ok(SerializeSeq { ser: self })
     }
 
-    fn serialize_tuple(self, _len: usize) -> Result<SerializeTuple<'a, W>> {
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         self.serialize_seq(None)
     }
 
@@ -207,7 +207,7 @@ where
         self,
         _name: &'static str,
         _len: usize,
-    ) -> Result<SerializeTupleStruct<'a, W>> {
+    ) -> Result<Self::SerializeTupleStruct> {
         self.serialize_seq(None)
     }
 
@@ -217,18 +217,18 @@ where
         _variant_index: u32,
         variant: &'static str,
         _len: usize,
-    ) -> Result<SerializeTupleVariant<'a, W>> {
+    ) -> Result<Self::SerializeTupleVariant> {
         self.inner.write(Insn::Onew)?;
         self.serialize_str(variant)?;
         self.serialize_seq(None)
     }
 
-    fn serialize_map(self, _len: Option<usize>) -> Result<SerializeMap<'a, W>> {
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         self.inner.write(Insn::Onew)?;
         Ok(SerializeMap { ser: self })
     }
 
-    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<SerializeStruct<'a, W>> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         self.serialize_map(None)
     }
 
@@ -238,7 +238,7 @@ where
         _variant_index: u32,
         variant: &'static str,
         _len: usize,
-    ) -> Result<SerializeStructVariant<'a, W>> {
+    ) -> Result<Self::SerializeStructVariant> {
         self.inner.write(Insn::Onew)?;
         self.serialize_str(variant)?;
         self.serialize_map(None)
@@ -349,8 +349,9 @@ where
     where
         T: ?Sized + ser::Serialize,
     {
-        // TODO: encode only string
-        key.serialize(&mut *self.ser)
+        key.serialize(MapKeySerializer {
+            ser: &mut *self.ser,
+        })
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<()>
@@ -409,6 +410,173 @@ where
     fn end(self) -> Result<()> {
         self.ser.inner.write(Insn::Oadd)?;
         ser::SerializeMap::end(self)
+    }
+}
+
+struct MapKeySerializer<'a, W> {
+    ser: &'a mut Serializer<W>,
+}
+
+impl<'a, W> ser::Serializer for MapKeySerializer<'a, W>
+where
+    W: WriteInsn,
+{
+    type Ok = ();
+    type Error = Error;
+    type SerializeSeq = SerializeSeq<'a, W>;
+    type SerializeTuple = SerializeTuple<'a, W>;
+    type SerializeTupleStruct = SerializeTupleStruct<'a, W>;
+    type SerializeTupleVariant = SerializeTupleVariant<'a, W>;
+    type SerializeMap = SerializeMap<'a, W>;
+    type SerializeStruct = SerializeStruct<'a, W>;
+    type SerializeStructVariant = SerializeStructVariant<'a, W>;
+
+    fn serialize_bool(self, _v: bool) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_i8(self, _v: i8) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_i16(self, _v: i16) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_i32(self, _v: i32) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_i64(self, _v: i64) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_u8(self, _v: u8) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_u16(self, _v: u16) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_u32(self, _v: u32) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_u64(self, _v: u64) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_f32(self, _v: f32) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_f64(self, _v: f64) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_char(self, _v: char) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_str(self, v: &str) -> Result<()> {
+        self.ser.serialize_str(v)
+    }
+
+    fn serialize_bytes(self, _v: &[u8]) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_none(self) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_some<T>(self, _value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        todo!()
+    }
+
+    fn serialize_unit(self) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
+        todo!()
+    }
+
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        variant: &'static str,
+    ) -> Result<()> {
+        self.ser.serialize_str(variant)
+    }
+
+    fn serialize_newtype_struct<T>(self, _name: &'static str, value: &T) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
+    ) -> Result<()>
+    where
+        T: ?Sized + ser::Serialize,
+    {
+        todo!()
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        todo!()
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        todo!()
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        todo!()
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        todo!()
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+        todo!()
+    }
+
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        todo!()
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
+        todo!()
     }
 }
 
@@ -631,7 +799,7 @@ mod test {
     }
 
     #[test]
-    fn serialize_map() {
+    fn serialize_map_key_str() {
         type HM<T> = std::collections::HashMap<&'static str, T>;
 
         assert_encodes(HM::<i32>::new(), object![]);
@@ -641,6 +809,37 @@ mod test {
         );
         assert_encodes(
             [("foo", 123), ("bar", 456)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            object![foo: Int(123), bar: Int(456)],
+        );
+    }
+
+    #[test]
+    fn serialize_map_key_unit_variant() {
+        #[derive(Eq, PartialEq, Hash, Debug, Serialize)]
+        enum Key {
+            A,
+            B,
+        }
+        type HM<T> = std::collections::HashMap<Key, T>;
+
+        assert_encodes(
+            [(Key::A, 123), (Key::B, 456)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            object![A: Int(123), B: Int(456)],
+        );
+    }
+
+    #[test]
+    fn serialize_map_key_newtype_struct() {
+        #[derive(Eq, PartialEq, Hash, Debug, Serialize)]
+        struct Key(&'static str);
+        type HM<T> = std::collections::HashMap<Key, T>;
+
+        assert_encodes(
+            [(Key("foo"), 123), (Key("bar"), 456)]
                 .into_iter()
                 .collect::<HM<i32>>(),
             object![foo: Int(123), bar: Int(456)],
