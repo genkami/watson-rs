@@ -271,23 +271,25 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("tuple")
+        self.deserialize_seq(visitor)
     }
+
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
         _len: usize,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("tuple_struct")
+        self.deserialize_seq(visitor)
     }
+
     fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -559,7 +561,23 @@ mod test {
     #[test]
     fn deserialize_seq() {
         assert_decodes(Vec::<bool>::new(), &array![]);
-        assert_decodes(vec![1i32, 2i32, 3i32], &array![Int(1), Int(2), Int(3)]);
+        assert_decodes(vec![1_i32, 2_i32, 3_i32], &array![Int(1), Int(2), Int(3)]);
+    }
+
+    #[test]
+    fn deserialize_tuple() {
+        assert_decodes(
+            (1_u32, true, "foo"),
+            &array![Uint(1), Bool(true), String(b"foo".to_vec())],
+        );
+    }
+
+    #[test]
+    fn deserialize_tuple_struct() {
+        #[derive(Eq, PartialEq, Deserialize, Debug)]
+        struct S(i32, (), u16);
+
+        assert_decodes(S(123, (), 45), &array![Int(123), Nil, Uint(45)]);
     }
 
     /*
