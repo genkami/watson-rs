@@ -132,18 +132,26 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("f32")
+        match self.value {
+            &watson::Value::Float(f) => visitor.visit_f64(f),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
-    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("f64")
+        match self.value {
+            &watson::Value::Float(f) => visitor.visit_f64(f),
+            _ => Err(self.unexpected(&visitor)),
+        }
     }
+
     fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -339,17 +347,59 @@ mod test {
         assert_decodes(18446744073709551615_u64, &Uint(18446744073709551615));
     }
 
+    #[test]
+    fn deserialize_f32() {
+        assert_decoded_value_satisfies(|f: f32| f.is_nan(), &Float(f64::NAN));
+        assert_decoded_value_satisfies(
+            |f: f32| f.is_sign_positive() && f.is_infinite(),
+            &Float(f64::INFINITY),
+        );
+        assert_decoded_value_satisfies(
+            |f: f32| f.is_sign_negative() && f.is_infinite(),
+            &Float(f64::NEG_INFINITY),
+        );
+        assert_decodes(1.25_f32, &Float(1.25));
+        assert_decodes(-1.25_f32, &Float(-1.25));
+    }
+
+    #[test]
+    fn deserialize_f64() {
+        assert_decoded_value_satisfies(|f: f64| f.is_nan(), &Float(f64::NAN));
+        assert_decoded_value_satisfies(
+            |f: f64| f.is_sign_positive() && f.is_infinite(),
+            &Float(f64::INFINITY),
+        );
+        assert_decoded_value_satisfies(
+            |f: f64| f.is_sign_negative() && f.is_infinite(),
+            &Float(f64::NEG_INFINITY),
+        );
+        assert_decodes(1.25_f64, &Float(1.25));
+        assert_decodes(-1.25_f64, &Float(-1.25));
+    }
+
     /*
      * Helper functions
      */
+
+    fn assert_decoded_value_satisfies<'de, T, F>(f: F, v: &'de watson::Value)
+    where
+        T: fmt::Debug + de::Deserialize<'de>,
+        F: FnOnce(T) -> bool,
+    {
+        assert!(f(deserialize(v)));
+    }
 
     fn assert_decodes<'de, T>(expected: T, v: &'de watson::Value)
     where
         T: PartialEq + fmt::Debug + de::Deserialize<'de>,
     {
-        assert_eq!(
-            expected,
-            T::deserialize(&mut Deserializer::new(v)).expect("deserialization error")
-        );
+        assert_eq!(expected, deserialize(v));
+    }
+
+    fn deserialize<'de, T>(v: &'de watson::Value) -> T
+    where
+        T: fmt::Debug + de::Deserialize<'de>,
+    {
+        T::deserialize(&mut Deserializer::new(v)).expect("deserialization error")
     }
 }
