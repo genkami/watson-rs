@@ -173,27 +173,27 @@ impl<'a> Serialize for ValueRef<'a> {
     where
         S: Serializer,
     {
-        match self.value {
-            &Int(n) => serializer.serialize_i64(n),
-            &Uint(n) => serializer.serialize_u64(n),
-            &Float(f) => serializer.serialize_f64(f),
-            &String(ref s) => serializer.serialize_bytes(s),
-            &Object(ref map) => {
+        match *self.value {
+            Int(n) => serializer.serialize_i64(n),
+            Uint(n) => serializer.serialize_u64(n),
+            Float(f) => serializer.serialize_f64(f),
+            String(ref s) => serializer.serialize_bytes(s),
+            Object(ref map) => {
                 let mut map_ser = serializer.serialize_map(Some(map.len()))?;
                 for (k, v) in map {
                     map_ser.serialize_entry(&BytesRef(k), &ValueRef::new(v))?;
                 }
                 map_ser.end()
             }
-            &Array(ref arr) => {
+            Array(ref arr) => {
                 let mut seq_ser = serializer.serialize_seq(Some(arr.len()))?;
                 for i in arr {
                     seq_ser.serialize_element(&ValueRef::new(i))?;
                 }
                 seq_ser.end()
             }
-            &Bool(b) => serializer.serialize_bool(b),
-            &Nil => serializer.serialize_none(),
+            Bool(b) => serializer.serialize_bool(b),
+            Nil => serializer.serialize_none(),
         }
     }
 }

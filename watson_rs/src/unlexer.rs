@@ -39,7 +39,7 @@ impl Default for Config {
 
 impl Config {
     /// Returns a new `Unlexer` that writes to the given writer.
-    pub fn new<W>(self, writer: W) -> Unlexer<W> {
+    pub fn build<W>(self, writer: W) -> Unlexer<W> {
         Unlexer {
             writer,
             mode: self.initial_mode,
@@ -51,7 +51,7 @@ impl Config {
     /// Creates a file (by `fs::File::create`) and returns an `Unlexer` that writes to this file.
     pub fn open(self, path: &path::Path) -> Result<Unlexer<fs::File>> {
         let f = fs::File::create(path)?;
-        Ok(self.new(f))
+        Ok(self.build(f))
     }
 }
 
@@ -65,7 +65,7 @@ impl Unlexer<fs::File> {
 impl<W> Unlexer<W> {
     /// Returns a new `Unlexer` that writes to the given writer with the default configuration.
     pub fn new(writer: W) -> Self {
-        Config::default().new(writer)
+        Config::default().build(writer)
     }
 }
 
@@ -80,13 +80,8 @@ impl<W: io::Write> WriteInsn for Unlexer<W> {
             buf[0] = b'\n';
             self.writer.write_all(&buf)?;
         }
-        match insn {
-            Insn::Snew => {
-                self.mode = self.mode.flip();
-            }
-            _ => {
-                // nop
-            }
+        if insn == Insn::Snew {
+            self.mode = self.mode.flip();
         }
         Ok(())
     }
@@ -111,7 +106,7 @@ mod test {
         let mut conf = Config::default();
         conf.initial_mode = Mode::S;
         let mut buf = Vec::new();
-        let mut unlexer = conf.new(&mut buf);
+        let mut unlexer = conf.build(&mut buf);
         unlexer.write(Insn::Inew)?;
         assert_eq!(buf, b"S".to_vec());
         Ok(())
@@ -151,7 +146,7 @@ mod test {
         let mut conf = Config::default();
         conf.chars_per_line = 5;
         let mut buf = Vec::new();
-        let mut unlexer = conf.new(&mut buf);
+        let mut unlexer = conf.build(&mut buf);
 
         for insn in vec![
             Inew, Iinc, Ishl, Ishl, Iadd, Snew, Inew, Iinc, Ishl, Ishl, Iadd, Snew, Inew,

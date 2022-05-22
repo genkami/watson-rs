@@ -18,10 +18,7 @@ pub struct SliceTokenReader<'a> {
 impl<'a> SliceTokenReader<'a> {
     /// Returns a new reader that reads tokens from the given slice.
     pub fn new(slice: &'a [Insn]) -> Self {
-        SliceTokenReader {
-            next: 0,
-            slice,
-        }
+        SliceTokenReader { next: 0, slice }
     }
 }
 
@@ -53,20 +50,23 @@ impl Stack {
 
     /// Returns a StackOps that can manipulate the stack on behalf of the instruction given by the token.
     pub fn operate_as(&mut self, token: Token) -> StackOps<'_> {
-        StackOps {
-            stack: self,
-            token,
-        }
+        StackOps { stack: self, token }
     }
 
     /// Returns a value on the top of the stack without consuming it.
     pub fn peek_top(&self) -> Option<&Value> {
         let len = self.vec.len();
-        if len <= 0 {
+        if len == 0 {
             None
         } else {
             Some(&self.vec[len - 1])
         }
+    }
+}
+
+impl Default for Stack {
+    fn default() -> Self {
+        Stack::new()
     }
 }
 
@@ -251,6 +251,12 @@ impl VM {
     /// Borrows its stack mutably for debug purpose.
     pub fn borrow_stack_mut(&mut self) -> &mut Stack {
         &mut self.stack
+    }
+}
+
+impl Default for VM {
+    fn default() -> Self {
+        VM::new()
     }
 }
 

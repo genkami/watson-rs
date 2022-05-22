@@ -30,15 +30,15 @@ impl<'de> Deserializer<'de> {
 
     fn ty(&self) -> de::Unexpected<'_> {
         use watson_rs::Value::*;
-        match self.value {
-            &Int(n) => de::Unexpected::Signed(n),
-            &Uint(n) => de::Unexpected::Unsigned(n),
-            &Float(f) => de::Unexpected::Float(f),
-            &String(ref bs) => de::Unexpected::Bytes(bs.as_slice()),
-            &Object(_) => de::Unexpected::Map,
-            &Array(_) => de::Unexpected::Seq,
-            &Bool(b) => de::Unexpected::Bool(b),
-            &Nil => de::Unexpected::Unit,
+        match *self.value {
+            Int(n) => de::Unexpected::Signed(n),
+            Uint(n) => de::Unexpected::Unsigned(n),
+            Float(f) => de::Unexpected::Float(f),
+            String(ref bs) => de::Unexpected::Bytes(bs.as_slice()),
+            Object(_) => de::Unexpected::Map,
+            Array(_) => de::Unexpected::Seq,
+            Bool(b) => de::Unexpected::Bool(b),
+            Nil => de::Unexpected::Unit,
         }
     }
 }
@@ -51,15 +51,15 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         use watson_rs::Value::*;
-        match self.value {
-            &Int(_) => self.deserialize_i64(visitor),
-            &Uint(_) => self.deserialize_u64(visitor),
-            &Float(_) => self.deserialize_f64(visitor),
-            &String(_) => self.deserialize_bytes(visitor),
-            &Object(_) => self.deserialize_map(visitor),
-            &Array(_) => self.deserialize_seq(visitor),
-            &Bool(_) => self.deserialize_bool(visitor),
-            &Nil => self.deserialize_unit(visitor),
+        match *self.value {
+            Int(_) => self.deserialize_i64(visitor),
+            Uint(_) => self.deserialize_u64(visitor),
+            Float(_) => self.deserialize_f64(visitor),
+            String(_) => self.deserialize_bytes(visitor),
+            Object(_) => self.deserialize_map(visitor),
+            Array(_) => self.deserialize_seq(visitor),
+            Bool(_) => self.deserialize_bool(visitor),
+            Nil => self.deserialize_unit(visitor),
         }
     }
 
@@ -311,9 +311,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.value {
-            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(vec)),
-            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(map)),
+        match *self.value {
+            watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(vec)),
+            watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -327,11 +327,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        match self.value {
-            &watson_rs::Value::String(ref name) => visitor.visit_enum(UnitVariantAccess::new(name)),
-            &watson_rs::Value::Object(ref map) => {
-                visitor.visit_enum(NonUnitVariantAccess::new(map))
-            }
+        match *self.value {
+            watson_rs::Value::String(ref name) => visitor.visit_enum(UnitVariantAccess::new(name)),
+            watson_rs::Value::Object(ref map) => visitor.visit_enum(NonUnitVariantAccess::new(map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }

@@ -39,7 +39,7 @@ impl Default for Config {
 
 impl Config {
     /// Returns a new `Lexer` that reads from the given reader.
-    pub fn new<R: io::Read>(self, reader: R) -> Lexer<R> {
+    pub fn build<R: io::Read>(self, reader: R) -> Lexer<R> {
         Lexer {
             bytes: reader.bytes(),
             mode: self.initial_mode,
@@ -56,7 +56,7 @@ impl Config {
         if self.file_path.is_none() {
             self.file_path = Some(path.to_path_buf().into());
         }
-        Ok(self.new(file))
+        Ok(self.build(file))
     }
 }
 
@@ -70,7 +70,7 @@ impl Lexer<fs::File> {
 impl<R: io::Read> Lexer<R> {
     /// Returns a new `Lexer` with the default configuration.
     pub fn new(reader: R) -> Self {
-        Config::default().new(reader)
+        Config::default().build(reader)
     }
 
     /// Returns the next byte.
@@ -102,14 +102,9 @@ impl<R: io::Read> Lexer<R> {
     }
 
     fn advance_state(&mut self, insn: Insn) {
-        match insn {
-            // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
-            Insn::Snew => {
-                self.mode = self.mode.flip();
-            }
-            _ => {
-                // nop
-            }
+        // See https://github.com/genkami/watson/blob/main/doc/spec.md#watson-representation.
+        if insn == Insn::Snew {
+            self.mode = self.mode.flip();
         }
     }
 }
@@ -174,7 +169,7 @@ mod test {
         let bytes = b"Shaak".to_vec();
         let mut conf = Config::default();
         conf.initial_mode = Mode::S;
-        let mut lexer = conf.new(&bytes[..]);
+        let mut lexer = conf.build(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {
@@ -213,7 +208,7 @@ mod test {
         let path = path::Path::new("test.watson");
         let mut conf = Config::default();
         conf.file_path = Some(path.to_path_buf().into());
-        let mut lexer = conf.new(&bytes[..]);
+        let mut lexer = conf.build(&bytes[..]);
         assert_eq!(
             lexer.read().unwrap(),
             Some(Token {

@@ -104,13 +104,13 @@ pub enum ErrorKind {
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            &ErrorKind::KeyMustBeBytes => write!(f, "Key must be bytes"),
-            &ErrorKind::UnexpectedMapKey => write!(f, "Unexpected map key"),
-            &ErrorKind::UnexpectedMapValue => write!(f, "Unexpected map value"),
-            &ErrorKind::UnexpectedMap => write!(f, "Unexpected map"),
-            &ErrorKind::ExecutionError(ref k) => k.fmt(f),
-            &ErrorKind::Custom(ref s) => write!(f, "{}", s),
+        match *self {
+            ErrorKind::KeyMustBeBytes => write!(f, "Key must be bytes"),
+            ErrorKind::UnexpectedMapKey => write!(f, "Unexpected map key"),
+            ErrorKind::UnexpectedMapValue => write!(f, "Unexpected map value"),
+            ErrorKind::UnexpectedMap => write!(f, "Unexpected map"),
+            ErrorKind::ExecutionError(ref k) => k.fmt(f),
+            ErrorKind::Custom(ref s) => write!(f, "{}", s),
         }
     }
 }

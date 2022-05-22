@@ -51,15 +51,15 @@ impl<W: WriteInsn> WriteInsn for Serializer<W> {
 impl<W: WriteInsn> Serializer<W> {
     /// Serializes a single `Value`.
     pub fn serialize(&mut self, v: &Value) -> Result<()> {
-        match v {
-            &Int(n) => self.serialize_int(n),
-            &Uint(n) => self.serialize_uint(n),
-            &Float(f) => self.serialize_float(f),
-            &String(ref s) => self.serialize_string(s),
-            &Object(ref map) => self.serialize_object(map),
-            &Array(ref arr) => self.serialize_array(arr),
-            &Bool(b) => self.serialize_bool(b),
-            &Nil => self.serialize_nil(),
+        match *v {
+            Int(n) => self.serialize_int(n),
+            Uint(n) => self.serialize_uint(n),
+            Float(f) => self.serialize_float(f),
+            String(ref s) => self.serialize_string(s),
+            Object(ref map) => self.serialize_object(map),
+            Array(ref arr) => self.serialize_array(arr),
+            Bool(b) => self.serialize_bool(b),
+            Nil => self.serialize_nil(),
         }
     }
 
