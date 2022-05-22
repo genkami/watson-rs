@@ -59,8 +59,6 @@ impl de::Error for Error {
     {
         ser::Error::custom(msg)
     }
-
-    // TODO: implement other methods
 }
 
 impl From<watson::Error> for Error {
