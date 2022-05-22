@@ -412,6 +412,19 @@ impl<'de> MapKeyDeserializer<'de> {
     }
 }
 
+impl<'de> MapKeyDeserializer<'de> {
+    fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
+        invalid_type(de::Unexpected::Bytes(self.key.as_slice()), exp)
+    }
+
+    fn to_array<const N: usize>(&self, exp: &dyn de::Expected) -> Result<[u8; N]> {
+        self.key
+            .as_slice()
+            .try_into()
+            .map_err(|_| self.invalid_type(exp))
+    }
+}
+
 impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
     type Error = Error;
 
@@ -422,67 +435,79 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         todo!("any")
     }
 
-    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("bool")
+        match self.to_array::<1>(&visitor)? {
+            [0] => visitor.visit_bool(false),
+            [1] => visitor.visit_bool(true),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
 
-    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i8")
+        let n = i8::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_i8(n)
     }
 
-    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i16")
+        let n = i16::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_i16(n)
     }
 
-    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i32")
+        let n = i32::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_i32(n)
     }
 
-    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("i64")
+        let n = i64::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_i64(n)
     }
 
-    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u8")
+        let n = u8::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_u8(n)
     }
 
-    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u16")
+        let n = u16::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_u16(n)
     }
 
-    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u32")
+        let n = u32::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_u32(n)
     }
 
-    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("u64")
+        let n = u64::from_be_bytes(self.to_array(&visitor)?);
+        visitor.visit_u64(n)
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
@@ -882,7 +907,170 @@ mod test {
     }
 
     #[test]
-    fn deserialize_map() {
+    fn deserialize_map_key_bool() {
+        type HM<T> = std::collections::HashMap<bool, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(true, 123), (false, 456)].into_iter().collect::<HM<i32>>(),
+            &object![
+                [b"\x01"]: Int(123),
+                [b"\x00"]: Int(456),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_i8() {
+        type HM<T> = std::collections::HashMap<i8, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7f, 3), (-1, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00"]: Int(1),
+                [b"\x01"]: Int(2),
+                [b"\x7f"]: Int(3),
+                [b"\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_i16() {
+        type HM<T> = std::collections::HashMap<i16, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7fff, 3), (-1, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00\x00"]: Int(1),
+                [b"\x00\x01"]: Int(2),
+                [b"\x7f\xff"]: Int(3),
+                [b"\xff\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_i32() {
+        type HM<T> = std::collections::HashMap<i32, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7fff_ffff, 3), (-1, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00\x00\x00\x00"]: Int(1),
+                [b"\x00\x00\x00\x01"]: Int(2),
+                [b"\x7f\xff\xff\xff"]: Int(3),
+                [b"\xff\xff\xff\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_i64() {
+        type HM<T> = std::collections::HashMap<i64, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7fff_ffff_ffff_ffff, 3), (-1, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00\x00\x00\x00\x00\x00\x00\x00"]: Int(1),
+                [b"\x00\x00\x00\x00\x00\x00\x00\x01"]: Int(2),
+                [b"\x7f\xff\xff\xff\xff\xff\xff\xff"]: Int(3),
+                [b"\xff\xff\xff\xff\xff\xff\xff\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_u8() {
+        type HM<T> = std::collections::HashMap<u8, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7f, 3), (0xff, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00"]: Int(1),
+                [b"\x01"]: Int(2),
+                [b"\x7f"]: Int(3),
+                [b"\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_u16() {
+        type HM<T> = std::collections::HashMap<u16, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7fff, 3), (0xffff, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00\x00"]: Int(1),
+                [b"\x00\x01"]: Int(2),
+                [b"\x7f\xff"]: Int(3),
+                [b"\xff\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_u32() {
+        type HM<T> = std::collections::HashMap<u32, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(0, 1), (1, 2), (0x7fff_ffff, 3), (0xffff_ffff, 4)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                [b"\x00\x00\x00\x00"]: Int(1),
+                [b"\x00\x00\x00\x01"]: Int(2),
+                [b"\x7f\xff\xff\xff"]: Int(3),
+                [b"\xff\xff\xff\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_u64() {
+        type HM<T> = std::collections::HashMap<u64, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [
+                (0, 1),
+                (1, 2),
+                (0x7fff_ffff_ffff_ffff, 3),
+                (0xffff_ffff_ffff_ffff, 4),
+            ]
+            .into_iter()
+            .collect::<HM<i32>>(),
+            &object![
+                [b"\x00\x00\x00\x00\x00\x00\x00\x00"]: Int(1),
+                [b"\x00\x00\x00\x00\x00\x00\x00\x01"]: Int(2),
+                [b"\x7f\xff\xff\xff\xff\xff\xff\xff"]: Int(3),
+                [b"\xff\xff\xff\xff\xff\xff\xff\xff"]: Int(4),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_string() {
         type HM<T> = std::collections::HashMap<std::string::String, T>;
 
         assert_decodes(HM::<i32>::new(), &object![]);
