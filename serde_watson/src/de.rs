@@ -296,13 +296,18 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _fields: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("struct")
+        match self.value {
+            &watson::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
+            &watson::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
+
     fn deserialize_enum<V>(
         self,
         _name: &'static str,
@@ -314,12 +319,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         todo!("enum")
     }
-    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
+
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("identifier")
+        self.deserialize_str(visitor)
     }
+
     fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -655,11 +662,11 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         todo!("enum")
     }
 
-    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("identifier")
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
@@ -1150,6 +1157,24 @@ mod test {
                 bar: Int(2),
             ],
         )
+    }
+
+    #[test]
+    fn deserialize_struct() {
+        #[derive(Eq, PartialEq, Deserialize, Debug)]
+        struct S {
+            f1: i32,
+            f2: bool,
+        }
+
+        assert_decodes(
+            S { f1: 123, f2: true },
+            &object![
+                f1: Int(123),
+                f2: Bool(true),
+            ],
+        );
+        assert_decodes(S { f1: 456, f2: false }, &array![Int(456), Bool(false)]);
     }
 
     /*
