@@ -42,7 +42,7 @@ fn main() -> serde_watson::Result<()> {
 }
 ```
 
-You can run the example above by `cargo run --example basic`.
+You can run the example above by running `cargo run --example basic` in the [watson_example](https://github.com/genkami/watson-rs/tree/main/watson_examples) directory.
 
 ```
 $ cargo run --example basic
