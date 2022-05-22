@@ -329,7 +329,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
     {
         match self.value {
             &watson_rs::Value::String(ref name) => visitor.visit_enum(UnitVariantAccess::new(name)),
-            &watson_rs::Value::Object(ref map) => visitor.visit_enum(NonUnitVariantAccess::new(map)),
+            &watson_rs::Value::Object(ref map) => {
+                visitor.visit_enum(NonUnitVariantAccess::new(map))
+            }
             _ => Err(self.invalid_type(&visitor)),
         }
     }
