@@ -8,7 +8,7 @@ pub struct Deserializer<'de> {
 }
 
 impl<'de> Deserializer<'de> {
-    /// Returns a new `Deeserializer` that reads from `value`.
+    /// Returns a new `Deserializer` that reads from `value`.
     pub fn new(value: &'de watson::Value) -> Self {
         Deserializer { value: value }
     }
@@ -570,25 +570,25 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         visitor.visit_byte_buf(self.key.clone())
     }
 
-    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("option")
+        Err(self.invalid_type(&visitor))
     }
 
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit")
+        Err(self.invalid_type(&visitor))
     }
 
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("unit_struct")
+        Err(self.invalid_type(&visitor))
     }
 
     fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
@@ -605,42 +605,42 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         todo!("seq")
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("tuple")
+        Err(self.invalid_type(&visitor))
     }
 
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
         _len: usize,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("tuple_struct")
+        Err(self.invalid_type(&visitor))
     }
 
-    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("map")
+        Err(self.invalid_type(&visitor))
     }
 
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
         _fields: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("struct")
+        Err(self.invalid_type(&visitor))
     }
 
     fn deserialize_enum<V>(
