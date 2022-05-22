@@ -46,11 +46,21 @@ impl<'de> Deserializer<'de> {
 impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("any")
+        use watson::Value::*;
+        match self.value {
+            &Int(_) => self.deserialize_i64(visitor),
+            &Uint(_) => self.deserialize_u64(visitor),
+            &Float(_) => self.deserialize_f64(visitor),
+            &String(_) => self.deserialize_bytes(visitor),
+            &Object(_) => self.deserialize_map(visitor),
+            &Array(_) => self.deserialize_seq(visitor),
+            &Bool(_) => self.deserialize_bool(visitor),
+            &Nil => self.deserialize_unit(visitor),
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -439,11 +449,11 @@ impl<'de> MapKeyDeserializer<'de> {
 impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("any")
+        self.deserialize_bytes(visitor)
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
@@ -1351,6 +1361,27 @@ mod test {
     use watson::{array, object};
 
     use super::*;
+    use crate::value::Value;
+
+    #[test]
+    fn deserialize_any() {
+        assert_decodes(Value::new(Int(123)), &Int(123));
+        assert_decodes(Value::new(Uint(456)), &Uint(456));
+        assert_decodes(Value::new(Float(1.23)), &Float(1.23));
+        assert_decodes(Value::new(Bool(true)), &Bool(true));
+        assert_decodes(
+            Value::new(String(b"foo".to_vec())),
+            &String(b"foo".to_vec()),
+        );
+        assert_decodes(
+            Value::new(array![Int(123), Uint(456)]),
+            &array![Int(123), Uint(456)],
+        );
+        assert_decodes(
+            Value::new(object![A: Int(1), B: Bool(false)]),
+            &object![A: Int(1), B: Bool(false)],
+        );
+    }
 
     #[test]
     fn deserialize_bool() {
@@ -1529,6 +1560,14 @@ mod test {
         struct S(i32, (), u16);
 
         assert_decodes(S(123, (), 45), &array![Int(123), Nil, Uint(45)]);
+    }
+    #[test]
+    fn deserialize_map_key_any() {
+        use crate::value::Value;
+        use watson::ToBytes;
+        let v = Value::deserialize(MapKeyDeserializer::new(&b"foo".to_bytes()))
+            .expect("deserialization error");
+        assert_eq!(v, Value::new(String(b"foo".to_vec())))
     }
 
     #[test]
