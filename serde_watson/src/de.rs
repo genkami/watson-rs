@@ -1,6 +1,6 @@
 use serde::de;
 
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 
 /// Deserializer implements serde::de::Deserializer for WATSON encoding.
 pub struct Deserializer<'de> {
@@ -19,23 +19,13 @@ impl<'de> Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::String(ref bytes) => {
-                std::str::from_utf8(bytes.as_slice()).map_err(|_| self.invalid_utf8(visitor))
-            }
+            &watson::Value::String(ref bytes) => try_borrow_str(bytes, visitor),
             _ => Err(self.invalid_type(visitor)),
         }
     }
 
     fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
-        de::Error::invalid_type(self.ty(), exp)
-    }
-
-    fn invalid_utf8(&self, exp: &dyn de::Expected) -> Error {
-        de::Error::invalid_value(de::Unexpected::Other("UTF-8 encoded string"), exp)
-    }
-
-    fn invalid_value(&self, desc: &'static str, exp: &dyn de::Expected) -> Error {
-        de::Error::invalid_value(de::Unexpected::Other(desc), exp)
+        invalid_type(self.ty(), exp)
     }
 
     fn ty(&self) -> de::Unexpected<'_> {
@@ -179,11 +169,13 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     {
         let mut chars = self.borrow_str(&visitor)?.chars();
         match chars.next() {
-            None => Err(self.invalid_value("empty byte sequence", &visitor)),
+            None => Err(invalid_value("empty byte sequence", &visitor)),
             Some(c) => {
                 if chars.next().is_some() {
-                    Err(self
-                        .invalid_value("string consisting of more than one characters", &visitor))
+                    Err(invalid_value(
+                        "string consisting of more than one characters",
+                        &visitor,
+                    ))
                 } else {
                     visitor.visit_char(c)
                 }
@@ -290,12 +282,16 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("map")
+        match self.value {
+            &watson::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
+
     fn deserialize_struct<V>(
         self,
         _name: &'static str,
@@ -361,13 +357,318 @@ impl<'de> de::SeqAccess<'de> for SeqAccess<'de> {
     }
 }
 
+struct MapAccess<'de> {
+    it: std::collections::hash_map::Iter<'de, watson::Bytes, watson::Value>,
+    next_value: Option<&'de watson::Value>,
+}
+
+impl<'de> MapAccess<'de> {
+    fn new(map: &'de watson::Map) -> Self {
+        MapAccess {
+            it: map.iter(),
+            next_value: None,
+        }
+    }
+}
+
+impl<'de> de::MapAccess<'de> for MapAccess<'de> {
+    type Error = Error;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
+    where
+        K: de::DeserializeSeed<'de>,
+    {
+        if self.next_value.is_some() {
+            return Err(error(ErrorKind::UnexpectedMapValue));
+        }
+        match self.it.next() {
+            None => Ok(None),
+            Some((k, v)) => {
+                self.next_value = Some(v);
+                let next_key = seed.deserialize(MapKeyDeserializer::new(k))?;
+                Ok(Some(next_key))
+            }
+        }
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        match self.next_value.take() {
+            None => Err(error(ErrorKind::UnexpectedMapKey)),
+            Some(v) => seed.deserialize(&mut Deserializer::new(v)),
+        }
+    }
+}
+
+struct MapKeyDeserializer<'de> {
+    key: &'de watson::Bytes,
+}
+
+impl<'de> MapKeyDeserializer<'de> {
+    fn new(k: &'de watson::Bytes) -> Self {
+        MapKeyDeserializer { key: k }
+    }
+}
+
+impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("any")
+    }
+
+    fn deserialize_bool<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("bool")
+    }
+
+    fn deserialize_i8<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("i8")
+    }
+
+    fn deserialize_i16<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("i16")
+    }
+
+    fn deserialize_i32<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("i32")
+    }
+
+    fn deserialize_i64<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("i64")
+    }
+
+    fn deserialize_u8<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("u8")
+    }
+
+    fn deserialize_u16<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("u16")
+    }
+
+    fn deserialize_u32<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("u32")
+    }
+
+    fn deserialize_u64<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("u64")
+    }
+
+    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("f32")
+    }
+
+    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("f64")
+    }
+
+    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("char")
+    }
+
+    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("str")
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        let s = try_borrow_str(self.key, &visitor)?;
+        visitor.visit_string(s.to_owned())
+    }
+
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("bytes")
+    }
+
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("byte_buf")
+    }
+
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("option")
+    }
+
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("unit")
+    }
+
+    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("unit_struct")
+    }
+
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("newtype_struct")
+    }
+
+    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("seq")
+    }
+
+    fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("tuple")
+    }
+
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        _visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("tuple_struct")
+    }
+
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("map")
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("struct")
+    }
+
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("enum")
+    }
+
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("identifier")
+    }
+
+    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("ignored_any")
+    }
+}
+
+fn try_borrow_str<'de, V>(bytes: &'de watson::Bytes, visitor: &V) -> Result<&'de str>
+where
+    V: de::Visitor<'de>,
+{
+    std::str::from_utf8(bytes.as_slice()).map_err(|_| invalid_utf8(visitor))
+}
+
+fn invalid_type(ty: de::Unexpected, exp: &dyn de::Expected) -> Error {
+    de::Error::invalid_type(ty, exp)
+}
+
+fn invalid_utf8(exp: &dyn de::Expected) -> Error {
+    invalid_value("invalid UTF-8 string", exp)
+}
+
+fn invalid_value(desc: &'static str, exp: &dyn de::Expected) -> Error {
+    de::Error::invalid_value(de::Unexpected::Other(desc), exp)
+}
+
+fn error(k: ErrorKind) -> Error {
+    Error {
+        kind: k,
+        location: None,
+        source: None,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::fmt;
 
     use serde::Deserialize;
-    use watson::array;
     use watson::Value::*;
+    use watson::{array, object};
 
     use super::*;
 
@@ -578,6 +879,25 @@ mod test {
         struct S(i32, (), u16);
 
         assert_decodes(S(123, (), 45), &array![Int(123), Nil, Uint(45)]);
+    }
+
+    #[test]
+    fn deserialize_map() {
+        type HM<T> = std::collections::HashMap<std::string::String, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [
+                ("hello".to_owned(), "world".to_owned()),
+                ("foo".to_owned(), "bar".to_owned()),
+            ]
+            .into_iter()
+            .collect::<HM<std::string::String>>(),
+            &object![
+                hello: String(b"world".to_vec()),
+                foo: String(b"bar".to_vec()),
+            ],
+        )
     }
 
     /*

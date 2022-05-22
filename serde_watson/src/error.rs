@@ -8,9 +8,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Error represents an error when serializing to or deserializing from WATSON.
 #[derive(Debug)]
 pub struct Error {
-    kind: ErrorKind,
-    location: Option<watson::Location>,
-    source: Option<Box<dyn StdError>>,
+    pub(crate) kind: ErrorKind,
+    pub(crate) location: Option<watson::Location>,
+    pub(crate) source: Option<Box<dyn StdError>>,
 }
 
 impl Error {
@@ -88,6 +88,12 @@ pub enum ErrorKind {
     /// Object key can't be converted into bytes.
     KeyMustBeBytes,
 
+    /// Unexpected map key detected while deserializing.
+    UnexpectedMapKey,
+
+    /// Unexpected map value detected while deserializing.
+    UnexpectedMapValue,
+
     /// An error occurred during VM execution.
     ExecutionError(watson::error::ErrorKind),
 
@@ -99,6 +105,8 @@ impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             &ErrorKind::KeyMustBeBytes => write!(f, "{}", "Key must be bytes"),
+            &ErrorKind::UnexpectedMapKey => write!(f, "{}", "Unexpected map key"),
+            &ErrorKind::UnexpectedMapValue => write!(f, "{}", "Unexpected map value"),
             &ErrorKind::ExecutionError(ref k) => k.fmt(f),
             &ErrorKind::Custom(ref s) => write!(f, "{}", s),
         }
