@@ -1,8 +1,39 @@
+use std::io;
+
 use serde::de;
+use watson_rs::lexer;
+use watson_rs::vm;
 
 use crate::error::{Error, ErrorKind, Result};
 
+/// Deserializes an `str` into a WATSON value.
+pub fn from_str(s: &str) -> Result<watson_rs::Value> {
+    from_reader(s.as_bytes())
+}
+
+/// Reads a WATSON value from the given reader.
+pub fn from_reader<R>(reader: R) -> Result<watson_rs::Value>
+where
+    R: io::Read,
+{
+    let lx = lexer::Lexer::new(reader);
+    let mut vm = vm::VM::new();
+    vm.execute_all(lx)?;
+    let top = vm.into_top().map(Ok).unwrap_or_else(|| {
+        Err(watson_rs::error::Error {
+            kind: watson_rs::error::ErrorKind::EmptyStack,
+            location: watson_rs::Location::unknown(),
+            source: None,
+        })
+    })?;
+    Ok(top)
+}
+
 /// Deserializer implements serde::de::Deserializer for WATSON encoding.
+///
+/// Since WATSON format can't be deserialized incrementally, we do not provide deserializers that
+/// borrows an `str` or `io::Read`. Use this deserializer in combination with `from_str` or `from_reader`
+/// if you want to deserialize WATSON values directly from these sources.
 pub struct Deserializer<'de> {
     value: &'de watson_rs::Value,
 }
@@ -1362,6 +1393,12 @@ mod test {
 
     use super::*;
     use crate::value::Value;
+
+    #[test]
+    fn test_from_str() -> Result<()> {
+        assert_eq!(Int(4), from_str("BBubba")?);
+        Ok(())
+    }
 
     #[test]
     fn deserialize_any() {
