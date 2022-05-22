@@ -1,2 +1,1 @@
-# watson-rs
-Rust implementation for WATSON
+watson/README.md

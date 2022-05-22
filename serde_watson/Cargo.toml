@@ -2,8 +2,11 @@
 name = "serde_watson"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Genta Kamitani <oftn.mofumofu@gmail.com>"]
+license-file = "Apache-2.0"
+description = "Rust implementation for Wasted but Amazing Turing-incomplete Stack-based Object Notation (WATSON)"
+repository = "https://github.com/genkami/watson-rs"
+categories = ["encoding"]
 
 [dependencies]
 serde = "1.0.137"
