@@ -591,11 +591,11 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         Err(self.invalid_type(&visitor))
     }
 
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("newtype_struct")
+        visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
@@ -1124,6 +1124,25 @@ mod test {
         assert_decodes(HM::<i32>::new(), &object![]);
         assert_decodes(
             [(Buf(b"foo".to_vec()), 1), (Buf(b"bar".to_vec()), 2)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                foo: Int(1),
+                bar: Int(2),
+            ],
+        )
+    }
+
+    #[test]
+    fn deserialize_map_key_newtype_struct() {
+        #[derive(Eq, PartialEq, Hash, Deserialize, Debug)]
+        struct S(std::string::String);
+
+        type HM<T> = std::collections::HashMap<S, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(S("foo".to_owned()), 1), (S("bar".to_owned()), 2)]
                 .into_iter()
                 .collect::<HM<i32>>(),
             &object![
