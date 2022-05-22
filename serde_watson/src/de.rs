@@ -991,28 +991,44 @@ impl<'de> NonUnitVariantAccess<'de> {
 
 impl<'de> de::EnumAccess<'de> for NonUnitVariantAccess<'de> {
     type Error = Error;
-    type Variant = Self;
+    type Variant = VariantFieldAccess<'de>;
 
-    fn variant_seed<V>(self, _seed: V) -> Result<(V::Value, Self::Variant)>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>
     where
         V: de::DeserializeSeed<'de>,
     {
-        todo!("nonunit:variant_seed")
+        if self.map.len() != 1 {
+            Err(error(ErrorKind::UnexpectedMap))
+        } else {
+            let (k, v) = self.map.iter().next().unwrap();
+            let ctor = seed.deserialize(EnumCtorDeserializer::new(k))?;
+            Ok((ctor, VariantFieldAccess::new(v)))
+        }
     }
 }
 
-impl<'de> de::VariantAccess<'de> for NonUnitVariantAccess<'de> {
+struct VariantFieldAccess<'de> {
+    value: &'de watson::Value,
+}
+
+impl<'de> VariantFieldAccess<'de> {
+    fn new(v: &'de watson::Value) -> Self {
+        VariantFieldAccess { value: v }
+    }
+}
+
+impl<'de> de::VariantAccess<'de> for VariantFieldAccess<'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
         todo!("nonunit:unit_variant")
     }
 
-    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value>
+    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
     where
         T: de::DeserializeSeed<'de>,
     {
-        todo!("nonunit:newtype_variant_seed")
+        seed.deserialize(&Deserializer::new(self.value))
     }
 
     fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
@@ -1545,7 +1561,7 @@ mod test {
         }
 
         assert_decodes(E::A, &String(b"A".to_vec()));
-        // assert_decodes(E::B(123), &object![B: Int(123)]);
+        assert_decodes(E::B(123), &object![B: Int(123)]);
         // assert_decodes(E::C(456, true), &object![C: array![Uint(456), Bool(true)]]);
         // assert_decodes(
         //     E::D {
