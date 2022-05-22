@@ -1,5 +1,8 @@
 # watson_rs
 [![Test](https://github.com/genkami/watson-rs/actions/workflows/test.yaml/badge.svg)](https://github.com/genkami/watson-rs/actions/workflows/test.yaml)
+[![watson_rs at crates.io](https://img.shields.io/crates/v/watson_rs.svg)](https://crates.io/crates/watson_rs)
+[![watson_rs at docs.rs](https://docs.rs/watson_rs/badge.svg)](https://docs.rs/watson_rs)
+
 
 A Rust implementation of [Wasted but Amazing Turing-incomplete Stack-based Object Notation (WATSON)](https://github.com/genkami/watson).
 

@@ -1,5 +1,9 @@
 # serde_watson
 
+[![Test](https://github.com/genkami/watson-rs/actions/workflows/test.yaml/badge.svg)](https://github.com/genkami/watson-rs/actions/workflows/test.yaml)
+[![serde_watson at crates.io](https://img.shields.io/crates/v/serde_watson.svg)](https://crates.io/crates/serde_watson)
+[![serde_watson at docs.rs](https://docs.rs/serde_watson/badge.svg)](https://docs.rs/serde_watson)
+
 Serde support for esoteric configuration language [WATSON](https://github.com/genkami/watson).
 
 ## Usage
