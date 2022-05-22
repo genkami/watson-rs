@@ -658,12 +658,12 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("enum")
+        visitor.visit_enum(UnitVariantAccess::new(&self.key))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
@@ -1810,6 +1810,25 @@ mod test {
             &object![
                 foo: Int(1),
                 bar: Int(2),
+            ],
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_enum() {
+        #[derive(Eq, PartialEq, Hash, Deserialize, Debug)]
+        enum E {
+            A,
+            B,
+        }
+        type HM<T> = std::collections::HashMap<E, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(E::A, 1), (E::B, 2)].into_iter().collect::<HM<i32>>(),
+            &object![
+                A: Int(1),
+                B: Int(2),
             ],
         );
     }
