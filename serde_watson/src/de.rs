@@ -43,7 +43,7 @@ impl<'de> Deserializer<'de> {
     }
 }
 
-impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
+impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
@@ -312,12 +312,16 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("enum")
+        match self.value {
+            &watson::Value::String(_) => visitor.visit_enum(UnitVariantAccess::new(self)),
+            &watson::Value::Object(ref map) => visitor.visit_enum(NonUnitVariantAccess::new(map)),
+            _ => Err(self.invalid_type(&visitor)),
+        }
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
@@ -358,7 +362,7 @@ impl<'de> de::SeqAccess<'de> for SeqAccess<'de> {
         } else {
             let i = self.next;
             self.next += 1;
-            let next_elem = seed.deserialize(&mut Deserializer::new(&self.arr[i]))?;
+            let next_elem = seed.deserialize(&Deserializer::new(&self.arr[i]))?;
             Ok(Some(next_elem))
         }
     }
@@ -404,7 +408,7 @@ impl<'de> de::MapAccess<'de> for MapAccess<'de> {
     {
         match self.next_value.take() {
             None => Err(error(ErrorKind::UnexpectedMapKey)),
-            Some(v) => seed.deserialize(&mut Deserializer::new(v)),
+            Some(v) => seed.deserialize(&Deserializer::new(v)),
         }
     }
 }
@@ -676,6 +680,122 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         todo!("ignored_any")
     }
 }
+
+struct UnitVariantAccess<'a, 'de> {
+    de: &'a Deserializer<'de>,
+}
+
+impl<'a, 'de> UnitVariantAccess<'a, 'de> {
+    fn new(de: &'a Deserializer<'de>) -> Self {
+        UnitVariantAccess { de: de }
+    }
+}
+
+impl<'a, 'de> de::EnumAccess<'de> for UnitVariantAccess<'a, 'de> {
+    type Error = Error;
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant)>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        let v = seed.deserialize(self.de)?;
+        Ok((v, self))
+    }
+}
+
+impl<'a, 'de> de::VariantAccess<'de> for UnitVariantAccess<'a, 'de> {
+    type Error = Error;
+
+    fn unit_variant(self) -> Result<()> {
+        Ok(())
+    }
+
+    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        Err(de::Error::invalid_type(
+            de::Unexpected::UnitVariant,
+            &"newtype variant",
+        ))
+    }
+
+    fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(de::Error::invalid_type(
+            de::Unexpected::UnitVariant,
+            &"tuple variant",
+        ))
+    }
+
+    fn struct_variant<V>(self, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(de::Error::invalid_type(
+            de::Unexpected::UnitVariant,
+            &"struct variant",
+        ))
+    }
+}
+
+struct NonUnitVariantAccess<'de> {
+    map: &'de watson::Map,
+}
+
+impl<'de> NonUnitVariantAccess<'de> {
+    fn new(map: &'de watson::Map) -> Self {
+        NonUnitVariantAccess { map: map }
+    }
+}
+
+impl<'de> de::EnumAccess<'de> for NonUnitVariantAccess<'de> {
+    type Error = Error;
+    type Variant = Self;
+
+    fn variant_seed<V>(self, _seed: V) -> Result<(V::Value, Self::Variant)>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        todo!("nonunit:variant_seed")
+    }
+}
+
+impl<'de> de::VariantAccess<'de> for NonUnitVariantAccess<'de> {
+    type Error = Error;
+
+    fn unit_variant(self) -> Result<()> {
+        todo!("nonunit:unit_variant")
+    }
+
+    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        todo!("nonunit:newtype_variant_seed")
+    }
+
+    fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("nonunit:tuple_variant")
+    }
+
+    fn struct_variant<V>(self, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        todo!("nonunit:struct_variant")
+    }
+}
+
+/*
+ * Helper functions
+ */
 
 fn try_borrow_str<'de, V>(bytes: &'de watson::Bytes, visitor: &V) -> Result<&'de str>
 where
@@ -1177,6 +1297,28 @@ mod test {
         assert_decodes(S { f1: 456, f2: false }, &array![Int(456), Bool(false)]);
     }
 
+    #[test]
+    fn deserialize_enum() {
+        #[derive(PartialEq, Deserialize, Debug)]
+        enum E {
+            A,
+            B(i32),
+            C(u32, bool),
+            D { f1: f64, f2: watson::Bytes },
+        }
+
+        assert_decodes(E::A, &String(b"A".to_vec()));
+        // assert_decodes(E::B(123), &object![B: Int(123)]);
+        // assert_decodes(E::C(456, true), &object![C: array![Uint(456), Bool(true)]]);
+        // assert_decodes(
+        //     E::D {
+        //         f1: 1.25,
+        //         f2: b"hey".to_vec(),
+        //    },
+        //     &object![D: object![f1: Float(1.25), f2: String(b"hey".to_vec())]],
+        //);
+    }
+
     /*
      * Helper functions
      */
@@ -1200,7 +1342,7 @@ mod test {
     where
         T: fmt::Debug + de::Deserialize<'de>,
     {
-        T::deserialize(&mut Deserializer::new(v)).expect("deserialization error")
+        T::deserialize(&Deserializer::new(v)).expect("deserialization error")
     }
 
     // The standard `de::Deserialize` implementation for `Vec<u8>` does not use `deserialize_byte_buf`.
