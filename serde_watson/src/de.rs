@@ -510,32 +510,42 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         visitor.visit_u64(n)
     }
 
-    fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("f32")
+        Err(self.invalid_type(&visitor))
     }
 
-    fn deserialize_f64<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("f64")
+        Err(self.invalid_type(&visitor))
     }
 
-    fn deserialize_char<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("char")
+        let s = try_borrow_str(self.key, &visitor)?;
+        let mut chars = s.chars();
+        let c = chars
+            .next()
+            .map(|c| Ok(c))
+            .unwrap_or_else(|| Err(self.invalid_type(&visitor)))?;
+        match chars.next() {
+            None => visitor.visit_char(c),
+            Some(_) => Err(self.invalid_type(&visitor)),
+        }
     }
 
-    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("str")
+        let s = try_borrow_str(self.key, &visitor)?;
+        visitor.visit_borrowed_str(s)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -546,18 +556,18 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         visitor.visit_string(s.to_owned())
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("bytes")
+        visitor.visit_borrowed_bytes(self.key.as_slice())
     }
 
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("byte_buf")
+        visitor.visit_byte_buf(self.key.clone())
     }
 
     fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
@@ -823,36 +833,6 @@ mod test {
 
     #[test]
     fn deserialize_byte_buf() {
-        // The standard `de::Deserialize` implementation for `Vec<u8>` does not use `deserialize_byte_buf`.
-        #[derive(Eq, PartialEq, Debug)]
-        struct Buf(Vec<u8>);
-
-        impl<'de> de::Deserialize<'de> for Buf {
-            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-            where
-                D: de::Deserializer<'de>,
-            {
-                deserializer.deserialize_byte_buf(BufVisitor)
-            }
-        }
-
-        struct BufVisitor;
-
-        impl<'de> de::Visitor<'de> for BufVisitor {
-            type Value = Buf;
-
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "byte_buf")
-            }
-
-            fn visit_byte_buf<E>(self, v: Vec<u8>) -> std::result::Result<Buf, E>
-            where
-                E: de::Error,
-            {
-                Ok(Buf(v))
-            }
-        }
-
         assert_decodes(Buf(b"".to_vec()), &String(b"".to_vec()));
         assert_decodes(Buf(b"goodbye".to_vec()), &String(b"goodbye".to_vec()));
     }
@@ -1070,6 +1050,39 @@ mod test {
     }
 
     #[test]
+    fn deserialize_map_key_char() {
+        type HM<T> = std::collections::HashMap<char, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [('A', 1), ('ぽ', 2), ('ꙮ', 8)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                A: Int(1),
+                [b"\xe3\x81\xbd"]: Int(2),
+                [b"\xea\x99\xae"]: Int(8),
+            ],
+        )
+    }
+
+    #[test]
+    fn deserialize_map_key_str() {
+        type HM<'a, T> = std::collections::HashMap<&'a str, T>;
+
+        assert_decodes(HM::<'_, i32>::new(), &object![]);
+        assert_decodes(
+            [("foo", 1), ("bar", 2)]
+                .into_iter()
+                .collect::<HM<'_, i32>>(),
+            &object![
+                foo: Int(1),
+                bar: Int(2),
+            ],
+        )
+    }
+
+    #[test]
     fn deserialize_map_key_string() {
         type HM<T> = std::collections::HashMap<std::string::String, T>;
 
@@ -1084,6 +1097,38 @@ mod test {
             &object![
                 hello: String(b"world".to_vec()),
                 foo: String(b"bar".to_vec()),
+            ],
+        )
+    }
+
+    #[test]
+    fn deserialize_map_key_bytes() {
+        type HM<'a, T> = std::collections::HashMap<&'a [u8], T>;
+
+        assert_decodes(HM::<'_, i32>::new(), &object![]);
+        assert_decodes(
+            [(b"foo".as_slice(), 1), (b"bar".as_slice(), 2)]
+                .into_iter()
+                .collect::<HM<'_, i32>>(),
+            &object![
+                foo: Int(1),
+                bar: Int(2),
+            ],
+        )
+    }
+
+    #[test]
+    fn deserialize_map_key_byte_buf() {
+        type HM<T> = std::collections::HashMap<Buf, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(Buf(b"foo".to_vec()), 1), (Buf(b"bar".to_vec()), 2)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                foo: Int(1),
+                bar: Int(2),
             ],
         )
     }
@@ -1112,5 +1157,35 @@ mod test {
         T: fmt::Debug + de::Deserialize<'de>,
     {
         T::deserialize(&mut Deserializer::new(v)).expect("deserialization error")
+    }
+
+    // The standard `de::Deserialize` implementation for `Vec<u8>` does not use `deserialize_byte_buf`.
+    #[derive(Eq, PartialEq, Hash, Debug)]
+    struct Buf(Vec<u8>);
+
+    impl<'de> de::Deserialize<'de> for Buf {
+        fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+        where
+            D: de::Deserializer<'de>,
+        {
+            deserializer.deserialize_byte_buf(BufVisitor)
+        }
+    }
+
+    struct BufVisitor;
+
+    impl<'de> de::Visitor<'de> for BufVisitor {
+        type Value = Buf;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "byte_buf")
+        }
+
+        fn visit_byte_buf<E>(self, v: Vec<u8>) -> std::result::Result<Buf, E>
+        where
+            E: de::Error,
+        {
+            Ok(Buf(v))
+        }
     }
 }
