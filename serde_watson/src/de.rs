@@ -1021,7 +1021,7 @@ impl<'de> de::VariantAccess<'de> for VariantFieldAccess<'de> {
     type Error = Error;
 
     fn unit_variant(self) -> Result<()> {
-        todo!("nonunit:unit_variant")
+        de::Deserialize::deserialize(&Deserializer::new(self.value))
     }
 
     fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
@@ -1031,18 +1031,18 @@ impl<'de> de::VariantAccess<'de> for VariantFieldAccess<'de> {
         seed.deserialize(&Deserializer::new(self.value))
     }
 
-    fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("nonunit:tuple_variant")
+        de::Deserializer::deserialize_seq(&Deserializer::new(self.value), visitor)
     }
 
-    fn struct_variant<V>(self, _fields: &'static [&'static str], _visitor: V) -> Result<V::Value>
+    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("nonunit:struct_variant")
+        de::Deserializer::deserialize_struct(&Deserializer::new(self.value), "", fields, visitor)
     }
 }
 
@@ -1557,19 +1557,20 @@ mod test {
             A,
             B(i32),
             C(u32, bool),
-            D { f1: f64, f2: watson::Bytes },
+            D { f1: f64, f2: std::string::String },
         }
 
         assert_decodes(E::A, &String(b"A".to_vec()));
+        assert_decodes(E::A, &object![A: Nil]);
         assert_decodes(E::B(123), &object![B: Int(123)]);
-        // assert_decodes(E::C(456, true), &object![C: array![Uint(456), Bool(true)]]);
-        // assert_decodes(
-        //     E::D {
-        //         f1: 1.25,
-        //         f2: b"hey".to_vec(),
-        //    },
-        //     &object![D: object![f1: Float(1.25), f2: String(b"hey".to_vec())]],
-        //);
+        assert_decodes(E::C(456, true), &object![C: array![Uint(456), Bool(true)]]);
+        assert_decodes(
+            E::D {
+                f1: 1.25,
+                f2: "hey".to_owned(),
+            },
+            &object![D: object![f1: Float(1.25), f2: String(b"hey".to_vec())]],
+        );
     }
 
     /*
