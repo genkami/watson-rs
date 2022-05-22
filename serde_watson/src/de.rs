@@ -609,11 +609,11 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("seq")
+        visitor.visit_seq(MapKeySeqAccess::new(self.key))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -678,6 +678,271 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         V: de::Visitor<'de>,
     {
         todo!("ignored_any")
+    }
+}
+
+struct MapKeySeqAccess<'de> {
+    key: &'de watson::Bytes,
+    next: usize,
+}
+
+impl<'de> MapKeySeqAccess<'de> {
+    fn new(key: &'de watson::Bytes) -> Self {
+        MapKeySeqAccess { key: key, next: 0 }
+    }
+}
+
+impl<'de> de::SeqAccess<'de> for MapKeySeqAccess<'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        if self.key.len() <= self.next {
+            Ok(None)
+        } else {
+            let i = self.next;
+            self.next += 1;
+            let v = seed.deserialize(MapKeyByteDeserializer::new(self.key[i]))?;
+            Ok(Some(v))
+        }
+    }
+}
+
+struct MapKeyByteDeserializer {
+    b: u8,
+}
+
+impl MapKeyByteDeserializer {
+    fn new(b: u8) -> Self {
+        MapKeyByteDeserializer { b: b }
+    }
+
+    fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
+        invalid_type(de::Unexpected::Unsigned(self.b as u64), exp)
+    }
+}
+
+impl<'de> de::Deserializer<'de> for MapKeyByteDeserializer {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        visitor.visit_u8(self.b)
+    }
+
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
+    }
+
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        Err(self.invalid_type(&visitor))
     }
 }
 
@@ -1443,7 +1708,7 @@ mod test {
                 [b"\xe3\x81\xbd"]: Int(2),
                 [b"\xea\x99\xae"]: Int(8),
             ],
-        )
+        );
     }
 
     #[test]
@@ -1459,7 +1724,7 @@ mod test {
                 foo: Int(1),
                 bar: Int(2),
             ],
-        )
+        );
     }
 
     #[test]
@@ -1478,7 +1743,7 @@ mod test {
                 hello: String(b"world".to_vec()),
                 foo: String(b"bar".to_vec()),
             ],
-        )
+        );
     }
 
     #[test]
@@ -1494,7 +1759,7 @@ mod test {
                 foo: Int(1),
                 bar: Int(2),
             ],
-        )
+        );
     }
 
     #[test]
@@ -1510,7 +1775,7 @@ mod test {
                 foo: Int(1),
                 bar: Int(2),
             ],
-        )
+        );
     }
 
     #[test]
@@ -1529,7 +1794,24 @@ mod test {
                 foo: Int(1),
                 bar: Int(2),
             ],
-        )
+        );
+    }
+
+    #[test]
+    fn deserialize_map_key_u8_seq() {
+        use watson::ToBytes;
+        type HM<T> = std::collections::HashMap<watson::Bytes, T>;
+
+        assert_decodes(HM::<i32>::new(), &object![]);
+        assert_decodes(
+            [(b"foo".to_bytes(), 1), (b"bar".to_bytes(), 2)]
+                .into_iter()
+                .collect::<HM<i32>>(),
+            &object![
+                foo: Int(1),
+                bar: Int(2),
+            ],
+        );
     }
 
     #[test]
