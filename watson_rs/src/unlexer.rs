@@ -41,7 +41,7 @@ impl Config {
     /// Returns a new `Unlexer` that writes to the given writer.
     pub fn new<W>(self, writer: W) -> Unlexer<W> {
         Unlexer {
-            writer: writer,
+            writer,
             mode: self.initial_mode,
             chars_per_line: self.chars_per_line,
             column: 0,

@@ -15,7 +15,7 @@ fn main() -> watson_rs::Result<()> {
 
 fn token(insn: Insn) -> Token {
     Token {
-        insn: insn,
+        insn,
         location: Location::unknown(),
     }
 }

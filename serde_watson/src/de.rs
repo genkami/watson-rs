@@ -10,7 +10,7 @@ pub struct Deserializer<'de> {
 impl<'de> Deserializer<'de> {
     /// Returns a new `Deserializer` that reads from `value`.
     pub fn new(value: &'de watson_rs::Value) -> Self {
-        Deserializer { value: value }
+        Deserializer { value }
     }
 
     /// Borrows an `str` from `Value::String`.
@@ -268,7 +268,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
+            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(vec)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -297,7 +297,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
+            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -312,8 +312,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
-            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
+            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(vec)),
+            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -358,7 +358,7 @@ struct SeqAccess<'de> {
 
 impl<'de> SeqAccess<'de> {
     fn new(arr: &'de Vec<watson_rs::Value>) -> Self {
-        SeqAccess { arr: arr, next: 0 }
+        SeqAccess { arr, next: 0 }
     }
 }
 
@@ -555,7 +555,7 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         let mut chars = s.chars();
         let c = chars
             .next()
-            .map(|c| Ok(c))
+            .map(Ok)
             .unwrap_or_else(|| Err(self.invalid_type(&visitor)))?;
         match chars.next() {
             None => visitor.visit_char(c),
@@ -675,7 +675,7 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        visitor.visit_enum(UnitVariantAccess::new(&self.key))
+        visitor.visit_enum(UnitVariantAccess::new(self.key))
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
@@ -700,7 +700,7 @@ struct MapKeySeqAccess<'de> {
 
 impl<'de> MapKeySeqAccess<'de> {
     fn new(key: &'de watson_rs::Bytes) -> Self {
-        MapKeySeqAccess { key: key, next: 0 }
+        MapKeySeqAccess { key, next: 0 }
     }
 }
 
@@ -728,7 +728,7 @@ struct MapKeyByteDeserializer {
 
 impl MapKeyByteDeserializer {
     fn new(b: u8) -> Self {
-        MapKeyByteDeserializer { b: b }
+        MapKeyByteDeserializer { b }
     }
 
     fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
@@ -964,7 +964,7 @@ struct EnumCtorDeserializer<'de> {
 
 impl<'de> EnumCtorDeserializer<'de> {
     fn new(name: &'de watson_rs::Bytes) -> Self {
-        EnumCtorDeserializer { name: name }
+        EnumCtorDeserializer { name }
     }
 
     fn invalid_type(&self, exp: &dyn de::Expected) -> Error {
@@ -1201,7 +1201,7 @@ struct UnitVariantAccess<'de> {
 
 impl<'de> UnitVariantAccess<'de> {
     fn new(name: &'de watson_rs::Bytes) -> Self {
-        UnitVariantAccess { name: name }
+        UnitVariantAccess { name }
     }
 }
 
@@ -1262,7 +1262,7 @@ struct NonUnitVariantAccess<'de> {
 
 impl<'de> NonUnitVariantAccess<'de> {
     fn new(map: &'de watson_rs::Map) -> Self {
-        NonUnitVariantAccess { map: map }
+        NonUnitVariantAccess { map }
     }
 }
 

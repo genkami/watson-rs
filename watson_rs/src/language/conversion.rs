@@ -197,7 +197,7 @@ impl ToBytes for char {
 
 impl ToBytes for std::string::String {
     fn to_bytes(self) -> Bytes {
-        self.to_owned().into_bytes()
+        self.into_bytes()
     }
 }
 

@@ -20,7 +20,7 @@ impl<'a> SliceTokenReader<'a> {
     pub fn new(slice: &'a [Insn]) -> Self {
         SliceTokenReader {
             next: 0,
-            slice: slice,
+            slice,
         }
     }
 }
@@ -33,7 +33,7 @@ impl<'a> ReadToken for SliceTokenReader<'a> {
             let insn = self.slice[self.next];
             self.next += 1;
             Ok(Some(Token {
-                insn: insn,
+                insn,
                 location: Location::unknown(),
             }))
         }
@@ -55,7 +55,7 @@ impl Stack {
     pub fn operate_as(&mut self, token: Token) -> StackOps<'_> {
         StackOps {
             stack: self,
-            token: token,
+            token,
         }
     }
 

@@ -37,7 +37,7 @@ impl Error {
     pub fn from_io_error(e: io::Error, location: Location) -> Self {
         Error {
             kind: ErrorKind::IOError,
-            location: location,
+            location,
             source: Some(Box::new(e)),
         }
     }

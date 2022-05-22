@@ -95,7 +95,7 @@ impl<R: io::Read> Lexer<R> {
     fn current_location(&self) -> Location {
         Location {
             byte: self.last_read_byte,
-            path: self.file_path.as_ref().map(|rc| Rc::clone(rc)),
+            path: self.file_path.as_ref().map(Rc::clone),
             line: self.line,
             column: self.column,
         }
@@ -130,9 +130,9 @@ impl<R: io::Read> ReadToken for Lexer<R> {
                     }
                     Some(insn) => {
                         token = Token {
-                            insn: insn,
+                            insn,
                             location: Location {
-                                byte: byte,
+                                byte,
                                 path: self.file_path.clone(),
                                 line: self.line,
                                 column: self.column,

@@ -18,7 +18,7 @@ impl FromStr for Value {
         let mut bytes = s.as_bytes();
         let mut vm = vm::VM::new();
         vm.execute_all(lexer::Lexer::new(&mut bytes))?;
-        vm.into_top().map(|v| Ok(v)).unwrap_or_else(|| {
+        vm.into_top().map(Ok).unwrap_or_else(|| {
             Err(Error {
                 kind: ErrorKind::EmptyStack,
                 location: Location::unknown(),

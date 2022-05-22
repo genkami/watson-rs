@@ -32,7 +32,7 @@ pub struct Serializer<W> {
 impl<W> Serializer<W> {
     /// Returns a new `Serializer`.
     pub fn new(writer: W) -> Self {
-        Serializer { writer: writer }
+        Serializer { writer }
     }
 
     /// Unwraps the inner value from this `Serializer`.
@@ -75,7 +75,7 @@ impl<W: WriteInsn> Serializer<W> {
                 }
                 self.write(Iadd)?;
             }
-            n = n >> 1;
+            n >>= 1;
             shift += 1;
         }
         Ok(())
