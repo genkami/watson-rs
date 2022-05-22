@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "watson",
+    "watson_rs",
     "serde_watson",
     "watson_examples",
 ]

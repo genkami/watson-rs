@@ -10,7 +10,7 @@ categories = ["encoding"]
 
 [dependencies]
 serde = "1.0.137"
-watson = { version = "0.1.0", path = "../watson" }
+watson_rs = { version = "0.1.0", path = "../watson_rs" }
 
 [dev-dependencies]
 serde_test = "1.0.137"

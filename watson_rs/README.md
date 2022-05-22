@@ -1,4 +1,4 @@
-# watson
+# watson_rs
 
 A Rust implementation of [Wasted but Amazing Turing-incomplete Stack-based Object Notation (WATSON)](https://github.com/genkami/watson).
 
@@ -12,7 +12,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-watson = "0.1.0"
+watson_rs = "0.1.0"
 ```
 
 ## Examples
@@ -101,10 +101,10 @@ $ cargo run --example basic | watson decode -t json
 You can run a WATSON Virtual Machine directly by using this crate:
 
 ```rust
-use watson::vm::VM;
-use watson::{Insn, Location, Token};
+use watson_rs::vm::VM;
+use watson_rs::{Insn, Location, Token};
 
-fn main() -> watson::Result<()> {
+fn main() -> watson_rs::Result<()> {
     let mut vm = VM::new();
 
     // Instructions are defined in https://github.com/genkami/watson/blob/main/doc/spec.md.

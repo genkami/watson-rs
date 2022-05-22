@@ -9,7 +9,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct Error {
     pub(crate) kind: ErrorKind,
-    pub(crate) location: Option<watson::Location>,
+    pub(crate) location: Option<watson_rs::Location>,
     pub(crate) source: Option<Box<dyn StdError>>,
 }
 
@@ -20,7 +20,7 @@ impl Error {
     }
 
     /// Returns an optional `Location` where the error happened.
-    pub fn location(&self) -> Option<&watson::Location> {
+    pub fn location(&self) -> Option<&watson_rs::Location> {
         self.location.as_ref()
     }
 }
@@ -61,8 +61,8 @@ impl de::Error for Error {
     }
 }
 
-impl From<watson::Error> for Error {
-    fn from(err: watson::Error) -> Self {
+impl From<watson_rs::Error> for Error {
+    fn from(err: watson_rs::Error) -> Self {
         Error {
             kind: ErrorKind::ExecutionError(err.kind),
             location: Some(err.location.clone()),
@@ -96,7 +96,7 @@ pub enum ErrorKind {
     UnexpectedMap,
 
     /// An error occurred during VM execution.
-    ExecutionError(watson::error::ErrorKind),
+    ExecutionError(watson_rs::error::ErrorKind),
 
     /// A user-defined error.
     Custom(String),

@@ -4,12 +4,12 @@ use crate::error::{Error, ErrorKind, Result};
 
 /// Deserializer implements serde::de::Deserializer for WATSON encoding.
 pub struct Deserializer<'de> {
-    value: &'de watson::Value,
+    value: &'de watson_rs::Value,
 }
 
 impl<'de> Deserializer<'de> {
     /// Returns a new `Deserializer` that reads from `value`.
-    pub fn new(value: &'de watson::Value) -> Self {
+    pub fn new(value: &'de watson_rs::Value) -> Self {
         Deserializer { value: value }
     }
 
@@ -19,7 +19,7 @@ impl<'de> Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::String(ref bytes) => try_borrow_str(bytes, visitor),
+            &watson_rs::Value::String(ref bytes) => try_borrow_str(bytes, visitor),
             _ => Err(self.invalid_type(visitor)),
         }
     }
@@ -29,7 +29,7 @@ impl<'de> Deserializer<'de> {
     }
 
     fn ty(&self) -> de::Unexpected<'_> {
-        use watson::Value::*;
+        use watson_rs::Value::*;
         match self.value {
             &Int(n) => de::Unexpected::Signed(n),
             &Uint(n) => de::Unexpected::Unsigned(n),
@@ -50,7 +50,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
     where
         V: de::Visitor<'de>,
     {
-        use watson::Value::*;
+        use watson_rs::Value::*;
         match self.value {
             &Int(_) => self.deserialize_i64(visitor),
             &Uint(_) => self.deserialize_u64(visitor),
@@ -68,7 +68,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Bool(b) => visitor.visit_bool(b),
+            &watson_rs::Value::Bool(b) => visitor.visit_bool(b),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -78,7 +78,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Int(n) => visitor.visit_i64(n),
+            &watson_rs::Value::Int(n) => visitor.visit_i64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -88,7 +88,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Int(n) => visitor.visit_i64(n),
+            &watson_rs::Value::Int(n) => visitor.visit_i64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -98,7 +98,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Int(n) => visitor.visit_i64(n),
+            &watson_rs::Value::Int(n) => visitor.visit_i64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -108,7 +108,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Int(n) => visitor.visit_i64(n),
+            &watson_rs::Value::Int(n) => visitor.visit_i64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -118,7 +118,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            &watson_rs::Value::Uint(n) => visitor.visit_u64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -128,7 +128,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            &watson_rs::Value::Uint(n) => visitor.visit_u64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -138,7 +138,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            &watson_rs::Value::Uint(n) => visitor.visit_u64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -148,7 +148,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Uint(n) => visitor.visit_u64(n),
+            &watson_rs::Value::Uint(n) => visitor.visit_u64(n),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -158,7 +158,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Float(f) => visitor.visit_f64(f),
+            &watson_rs::Value::Float(f) => visitor.visit_f64(f),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -168,7 +168,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Float(f) => visitor.visit_f64(f),
+            &watson_rs::Value::Float(f) => visitor.visit_f64(f),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -214,7 +214,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::String(ref bytes) => visitor.visit_borrowed_bytes(bytes.as_slice()),
+            &watson_rs::Value::String(ref bytes) => visitor.visit_borrowed_bytes(bytes.as_slice()),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -224,7 +224,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::String(ref bytes) => visitor.visit_byte_buf(bytes.clone()),
+            &watson_rs::Value::String(ref bytes) => visitor.visit_byte_buf(bytes.clone()),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -234,7 +234,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Nil => visitor.visit_none(),
+            &watson_rs::Value::Nil => visitor.visit_none(),
             _ => visitor.visit_some(self),
         }
     }
@@ -244,7 +244,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Nil => visitor.visit_unit(),
+            &watson_rs::Value::Nil => visitor.visit_unit(),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -268,7 +268,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
+            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -297,7 +297,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
+            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -312,8 +312,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
-            &watson::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
+            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(&vec)),
+            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(&map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -328,8 +328,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson::Value::String(ref name) => visitor.visit_enum(UnitVariantAccess::new(name)),
-            &watson::Value::Object(ref map) => visitor.visit_enum(NonUnitVariantAccess::new(map)),
+            &watson_rs::Value::String(ref name) => visitor.visit_enum(UnitVariantAccess::new(name)),
+            &watson_rs::Value::Object(ref map) => visitor.visit_enum(NonUnitVariantAccess::new(map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -350,12 +350,12 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
 }
 
 struct SeqAccess<'de> {
-    arr: &'de Vec<watson::Value>,
+    arr: &'de Vec<watson_rs::Value>,
     next: usize,
 }
 
 impl<'de> SeqAccess<'de> {
-    fn new(arr: &'de Vec<watson::Value>) -> Self {
+    fn new(arr: &'de Vec<watson_rs::Value>) -> Self {
         SeqAccess { arr: arr, next: 0 }
     }
 }
@@ -379,12 +379,12 @@ impl<'de> de::SeqAccess<'de> for SeqAccess<'de> {
 }
 
 struct MapAccess<'de> {
-    it: std::collections::hash_map::Iter<'de, watson::Bytes, watson::Value>,
-    next_value: Option<&'de watson::Value>,
+    it: std::collections::hash_map::Iter<'de, watson_rs::Bytes, watson_rs::Value>,
+    next_value: Option<&'de watson_rs::Value>,
 }
 
 impl<'de> MapAccess<'de> {
-    fn new(map: &'de watson::Map) -> Self {
+    fn new(map: &'de watson_rs::Map) -> Self {
         MapAccess {
             it: map.iter(),
             next_value: None,
@@ -424,11 +424,11 @@ impl<'de> de::MapAccess<'de> for MapAccess<'de> {
 }
 
 struct MapKeyDeserializer<'de> {
-    key: &'de watson::Bytes,
+    key: &'de watson_rs::Bytes,
 }
 
 impl<'de> MapKeyDeserializer<'de> {
-    fn new(k: &'de watson::Bytes) -> Self {
+    fn new(k: &'de watson_rs::Bytes) -> Self {
         MapKeyDeserializer { key: k }
     }
 }
@@ -692,12 +692,12 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
 }
 
 struct MapKeySeqAccess<'de> {
-    key: &'de watson::Bytes,
+    key: &'de watson_rs::Bytes,
     next: usize,
 }
 
 impl<'de> MapKeySeqAccess<'de> {
-    fn new(key: &'de watson::Bytes) -> Self {
+    fn new(key: &'de watson_rs::Bytes) -> Self {
         MapKeySeqAccess { key: key, next: 0 }
     }
 }
@@ -957,11 +957,11 @@ impl<'de> de::Deserializer<'de> for MapKeyByteDeserializer {
 }
 
 struct EnumCtorDeserializer<'de> {
-    name: &'de watson::Bytes,
+    name: &'de watson_rs::Bytes,
 }
 
 impl<'de> EnumCtorDeserializer<'de> {
-    fn new(name: &'de watson::Bytes) -> Self {
+    fn new(name: &'de watson_rs::Bytes) -> Self {
         EnumCtorDeserializer { name: name }
     }
 
@@ -1194,11 +1194,11 @@ impl<'de> de::Deserializer<'de> for EnumCtorDeserializer<'de> {
 }
 
 struct UnitVariantAccess<'de> {
-    name: &'de watson::Bytes,
+    name: &'de watson_rs::Bytes,
 }
 
 impl<'de> UnitVariantAccess<'de> {
-    fn new(name: &'de watson::Bytes) -> Self {
+    fn new(name: &'de watson_rs::Bytes) -> Self {
         UnitVariantAccess { name: name }
     }
 }
@@ -1255,11 +1255,11 @@ impl<'de> de::VariantAccess<'de> for UnitVariantAccess<'de> {
 }
 
 struct NonUnitVariantAccess<'de> {
-    map: &'de watson::Map,
+    map: &'de watson_rs::Map,
 }
 
 impl<'de> NonUnitVariantAccess<'de> {
-    fn new(map: &'de watson::Map) -> Self {
+    fn new(map: &'de watson_rs::Map) -> Self {
         NonUnitVariantAccess { map: map }
     }
 }
@@ -1283,11 +1283,11 @@ impl<'de> de::EnumAccess<'de> for NonUnitVariantAccess<'de> {
 }
 
 struct VariantFieldAccess<'de> {
-    value: &'de watson::Value,
+    value: &'de watson_rs::Value,
 }
 
 impl<'de> VariantFieldAccess<'de> {
-    fn new(v: &'de watson::Value) -> Self {
+    fn new(v: &'de watson_rs::Value) -> Self {
         VariantFieldAccess { value: v }
     }
 }
@@ -1325,7 +1325,7 @@ impl<'de> de::VariantAccess<'de> for VariantFieldAccess<'de> {
  * Helper functions
  */
 
-fn try_borrow_str<'de, V>(bytes: &'de watson::Bytes, visitor: &V) -> Result<&'de str>
+fn try_borrow_str<'de, V>(bytes: &'de watson_rs::Bytes, visitor: &V) -> Result<&'de str>
 where
     V: de::Visitor<'de>,
 {
@@ -1357,8 +1357,8 @@ mod test {
     use std::fmt;
 
     use serde::Deserialize;
-    use watson::Value::*;
-    use watson::{array, object};
+    use watson_rs::Value::*;
+    use watson_rs::{array, object};
 
     use super::*;
     use crate::value::Value;
@@ -1564,7 +1564,7 @@ mod test {
     #[test]
     fn deserialize_map_key_any() {
         use crate::value::Value;
-        use watson::ToBytes;
+        use watson_rs::ToBytes;
         let v = Value::deserialize(MapKeyDeserializer::new(&b"foo".to_bytes()))
             .expect("deserialization error");
         assert_eq!(v, Value::new(String(b"foo".to_vec())))
@@ -1838,8 +1838,8 @@ mod test {
 
     #[test]
     fn deserialize_map_key_u8_seq() {
-        use watson::ToBytes;
-        type HM<T> = std::collections::HashMap<watson::Bytes, T>;
+        use watson_rs::ToBytes;
+        type HM<T> = std::collections::HashMap<watson_rs::Bytes, T>;
 
         assert_decodes(HM::<i32>::new(), &object![]);
         assert_decodes(
@@ -1917,7 +1917,7 @@ mod test {
      * Helper functions
      */
 
-    fn assert_decoded_value_satisfies<'de, T, F>(f: F, v: &'de watson::Value)
+    fn assert_decoded_value_satisfies<'de, T, F>(f: F, v: &'de watson_rs::Value)
     where
         T: fmt::Debug + de::Deserialize<'de>,
         F: FnOnce(T) -> bool,
@@ -1925,14 +1925,14 @@ mod test {
         assert!(f(deserialize(v)));
     }
 
-    fn assert_decodes<'de, T>(expected: T, v: &'de watson::Value)
+    fn assert_decodes<'de, T>(expected: T, v: &'de watson_rs::Value)
     where
         T: PartialEq + fmt::Debug + de::Deserialize<'de>,
     {
         assert_eq!(expected, deserialize(v));
     }
 
-    fn deserialize<'de, T>(v: &'de watson::Value) -> T
+    fn deserialize<'de, T>(v: &'de watson_rs::Value) -> T
     where
         T: fmt::Debug + de::Deserialize<'de>,
     {

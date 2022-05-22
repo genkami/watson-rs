@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-watson = { path = "../watson" }
+watson_rs = { path = "../watson_rs" }
 serde_watson = { path = "../serde_watson" }
 serde = "1.0.137"

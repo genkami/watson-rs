@@ -1,10 +1,10 @@
 use std::io;
 
 use serde::ser;
-use watson::serializer;
-use watson::serializer::WriteInsn;
-use watson::unlexer;
-use watson::{Insn, Value};
+use watson_rs::serializer;
+use watson_rs::serializer::WriteInsn;
+use watson_rs::unlexer;
+use watson_rs::{Insn, Value};
 
 use crate::error::{Error, Result};
 
@@ -775,9 +775,9 @@ mod test {
 
     use serde::ser::Serializer as SerdeSerializer;
     use serde::Serialize;
-    use watson::ToBytes;
-    use watson::Value::*;
-    use watson::{array, object};
+    use watson_rs::ToBytes;
+    use watson_rs::Value::*;
+    use watson_rs::{array, object};
 
     use super::*;
 
@@ -1274,7 +1274,7 @@ mod test {
      * Helper functions
      */
 
-    fn assert_encodes<T>(x: T, expected: watson::Value)
+    fn assert_encodes<T>(x: T, expected: watson_rs::Value)
     where
         T: fmt::Debug + ser::Serialize,
     {
@@ -1297,14 +1297,14 @@ mod test {
         }
     }
 
-    fn assert_encodes_to_bytes(s: &[u8], expected: watson::Value) {
+    fn assert_encodes_to_bytes(s: &[u8], expected: watson_rs::Value) {
         let mut buf = vec![];
         let mut ser = Serializer::new(&mut buf);
         ser.serialize_bytes(s).expect("serialization error");
         assert_eq!(decode(&mut buf.into_iter()), expected);
     }
 
-    fn encode_then_decode<T>(x: T) -> watson::Value
+    fn encode_then_decode<T>(x: T) -> watson_rs::Value
     where
         T: ser::Serialize,
     {
@@ -1316,13 +1316,13 @@ mod test {
         decode(&mut buf.into_iter())
     }
 
-    fn decode<It>(it: &mut It) -> watson::Value
+    fn decode<It>(it: &mut It) -> watson_rs::Value
     where
-        It: Iterator<Item = watson::Insn>,
+        It: Iterator<Item = watson_rs::Insn>,
     {
-        let mut vm = watson::VM::new();
-        vm.execute_all(watson::vm::SliceTokenReader::new(
-            &it.collect::<Vec<watson::Insn>>(),
+        let mut vm = watson_rs::VM::new();
+        vm.execute_all(watson_rs::vm::SliceTokenReader::new(
+            &it.collect::<Vec<watson_rs::Insn>>(),
         ))
         .expect("execution error");
         vm.peek_top().expect("stack should not be empty").clone()

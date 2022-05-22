@@ -1,7 +1,7 @@
-use watson::vm::VM;
-use watson::{Insn, Location, Token};
+use watson_rs::vm::VM;
+use watson_rs::{Insn, Location, Token};
 
-fn main() -> watson::Result<()> {
+fn main() -> watson_rs::Result<()> {
     let mut vm = VM::new();
 
     // Instructions are defined in https://github.com/genkami/watson/blob/main/doc/spec.md.

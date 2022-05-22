@@ -4,28 +4,28 @@ use std::ops;
 use serde::de;
 use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
-use watson::Value::*;
+use watson_rs::Value::*;
 
 /// Value implements Serialize and Deserialize for `value::Value`.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Value {
-    value: watson::Value,
+    value: watson_rs::Value,
 }
 
 impl Value {
     /// Returns a new `Value`.
-    pub fn new(v: watson::Value) -> Self {
+    pub fn new(v: watson_rs::Value) -> Self {
         Value { value: v }
     }
 
     /// Returns underlying `watson::Value`.
-    pub fn into_watson(self) -> watson::Value {
+    pub fn into_watson(self) -> watson_rs::Value {
         self.value
     }
 }
 
-impl From<watson::Value> for Value {
-    fn from(v: watson::Value) -> Self {
+impl From<watson_rs::Value> for Value {
+    fn from(v: watson_rs::Value) -> Self {
         Value::new(v)
     }
 }
@@ -110,7 +110,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let mut map = watson::Map::with_capacity(access.size_hint().unwrap_or(0));
+        let mut map = watson_rs::Map::with_capacity(access.size_hint().unwrap_or(0));
         while let Some((key, value)) = access.next_entry::<Bytes, Value>()? {
             map.insert(key.into_bytes(), value.into_watson());
         }
@@ -144,26 +144,26 @@ impl<'de> Visitor<'de> for ValueVisitor {
 }
 
 pub struct ValueRef<'a> {
-    value: &'a watson::Value,
+    value: &'a watson_rs::Value,
 }
 
 impl<'a> ValueRef<'a> {
     /// Returns a new `ValueRef` that points to the given `Value`.
-    pub fn new(v: &'a watson::Value) -> Self {
+    pub fn new(v: &'a watson_rs::Value) -> Self {
         ValueRef { value: v }
     }
 }
 
-impl<'a> AsRef<watson::Value> for ValueRef<'a> {
-    fn as_ref(&self) -> &watson::Value {
+impl<'a> AsRef<watson_rs::Value> for ValueRef<'a> {
+    fn as_ref(&self) -> &watson_rs::Value {
         self.value
     }
 }
 
 impl<'a> ops::Deref for ValueRef<'a> {
-    type Target = watson::Value;
+    type Target = watson_rs::Value;
 
-    fn deref(&self) -> &watson::Value {
+    fn deref(&self) -> &watson_rs::Value {
         self.value
     }
 }
@@ -198,7 +198,7 @@ impl<'a> Serialize for ValueRef<'a> {
     }
 }
 
-struct BytesRef<'a>(&'a watson::Bytes);
+struct BytesRef<'a>(&'a watson_rs::Bytes);
 
 impl<'a> Serialize for BytesRef<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -209,10 +209,10 @@ impl<'a> Serialize for BytesRef<'a> {
     }
 }
 
-struct Bytes(watson::Bytes);
+struct Bytes(watson_rs::Bytes);
 
 impl Bytes {
-    fn into_bytes(self) -> watson::Bytes {
+    fn into_bytes(self) -> watson_rs::Bytes {
         self.0
     }
 }
@@ -267,8 +267,8 @@ impl<'de> Visitor<'de> for BytesVisitor {
 #[cfg(test)]
 mod test {
     use serde_test::{assert_tokens, Token};
-    use watson::Map;
-    use watson::Value::*;
+    use watson_rs::Map;
+    use watson_rs::Value::*;
 
     use super::*;
 
