@@ -331,11 +331,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("ignored_any")
+        visitor.visit_unit()
     }
 }
 
@@ -673,11 +673,11 @@ impl<'de> de::Deserializer<'de> for MapKeyDeserializer<'de> {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        todo!("ignored_any")
+        visitor.visit_unit()
     }
 }
 
