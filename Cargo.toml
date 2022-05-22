@@ -3,4 +3,5 @@
 members = [
     "watson",
     "serde_watson",
+    "watson_examples",
 ]

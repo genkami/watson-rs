@@ -1,0 +1,9 @@
+[package]
+name = "watson_examples"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+watson = { path = "../watson" }
+serde_watson = { path = "../serde_watson" }
+serde = "1.0.137"
