@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 watson_rs = { path = "../watson_rs" }
 serde_watson = { path = "../serde_watson" }
-serde = "1.0.137"
+serde = "1.0.138"
