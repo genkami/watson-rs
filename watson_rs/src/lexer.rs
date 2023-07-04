@@ -52,7 +52,7 @@ impl Config {
 
     /// Opens a file and builds a `Lexer` that reads from the given file.
     pub fn open(mut self, path: &path::Path) -> Result<Lexer<fs::File>> {
-        let file = fs::File::open(&path)?;
+        let file = fs::File::open(path)?;
         if self.file_path.is_none() {
             self.file_path = Some(path.to_path_buf().into());
         }

@@ -74,7 +74,7 @@ where
     }
 
     fn serialize_i64(self, v: i64) -> Result<()> {
-        self.inner.serialize(&Value::Int(v as i64))?;
+        self.inner.serialize(&Value::Int(v))?;
         Ok(())
     }
 
@@ -94,7 +94,7 @@ where
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        self.inner.serialize(&Value::Uint(v as u64))?;
+        self.inner.serialize(&Value::Uint(v))?;
         Ok(())
     }
 
@@ -104,7 +104,7 @@ where
     }
 
     fn serialize_f64(self, v: f64) -> Result<()> {
-        self.inner.serialize(&Value::Float(v as f64))?;
+        self.inner.serialize(&Value::Float(v))?;
         Ok(())
     }
 

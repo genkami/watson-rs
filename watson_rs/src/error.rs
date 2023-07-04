@@ -56,7 +56,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::TypeMismatch => "Type mismatch",
             ErrorKind::IOError => "I/O error",
         };
-        write!(f, "{}", msg)
+        write!(f, "{msg}")
     }
 }
 

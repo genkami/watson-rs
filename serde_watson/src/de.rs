@@ -50,7 +50,7 @@ impl<'de> Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::String(ref bytes) => try_borrow_str(bytes, visitor),
+            watson_rs::Value::String(bytes) => try_borrow_str(bytes, visitor),
             _ => Err(self.invalid_type(visitor)),
         }
     }
@@ -245,7 +245,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::String(ref bytes) => visitor.visit_borrowed_bytes(bytes.as_slice()),
+            watson_rs::Value::String(bytes) => visitor.visit_borrowed_bytes(bytes.as_slice()),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -255,7 +255,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::String(ref bytes) => visitor.visit_byte_buf(bytes.clone()),
+            watson_rs::Value::String(bytes) => visitor.visit_byte_buf(bytes.clone()),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -299,7 +299,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::Array(ref vec) => visitor.visit_seq(SeqAccess::new(vec)),
+            watson_rs::Value::Array(vec) => visitor.visit_seq(SeqAccess::new(vec)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }
@@ -328,7 +328,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a Deserializer<'de> {
         V: de::Visitor<'de>,
     {
         match self.value {
-            &watson_rs::Value::Object(ref map) => visitor.visit_map(MapAccess::new(map)),
+            watson_rs::Value::Object(map) => visitor.visit_map(MapAccess::new(map)),
             _ => Err(self.invalid_type(&visitor)),
         }
     }

@@ -163,7 +163,7 @@ impl fmt::Display for Location {
         }
         write!(f, " (line: {}, column: {})", self.line, self.column)?;
         if let Some(c) = char::from_u32(self.byte as u32) {
-            write!(f, ", near the character {}", c)?;
+            write!(f, ", near the character {c}")?;
         }
         Ok(())
     }

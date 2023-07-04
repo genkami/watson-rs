@@ -46,7 +46,7 @@ impl ser::Error for Error {
         T: fmt::Display,
     {
         Error {
-            kind: ErrorKind::Custom(format!("{}", msg)),
+            kind: ErrorKind::Custom(format!("{msg}")),
             location: None,
             source: None,
         }
@@ -110,7 +110,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::UnexpectedMapValue => write!(f, "Unexpected map value"),
             ErrorKind::UnexpectedMap => write!(f, "Unexpected map"),
             ErrorKind::ExecutionError(ref k) => k.fmt(f),
-            ErrorKind::Custom(ref s) => write!(f, "{}", s),
+            ErrorKind::Custom(ref s) => write!(f, "{s}"),
         }
     }
 }
