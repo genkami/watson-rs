@@ -11,4 +11,4 @@ categories = ["encoding"]
 [dependencies]
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = "3.10.1"
